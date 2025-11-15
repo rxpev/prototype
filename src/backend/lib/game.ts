@@ -272,6 +272,11 @@ export class Server {
   private serverConfigFile: string;
   private settings: typeof Constants.Settings;
   private spectating?: boolean;
+
+  // FACEIT fields
+  private isFaceit: boolean;
+  private faceitRoom: any;
+
   public competitors: Server['match']['competitors'];
   public log: log.LogFunctions;
   public match: Prisma.MatchGetPayload<typeof Eagers.match>;
@@ -286,16 +291,16 @@ export class Server {
   public scorebotEvents: Array<{
     type: Scorebot.EventIdentifier;
     payload:
-      | Scorebot.EventPayloadPlayerAssisted
-      | Scorebot.EventPayloadPlayerKilled
-      | Scorebot.EventPayloadRoundOver;
+    | Scorebot.EventPayloadPlayerAssisted
+    | Scorebot.EventPayloadPlayerKilled
+    | Scorebot.EventPayloadRoundOver;
   }>;
 
   /**
    * Constructor.
    *
    * @param profile       The user profile object.
-   * @param match         The match object.
+   * @param match         The match object (can be FACEIT pseudo-match).
    * @param gameOverride  Game override.
    * @param spectating    Whether user is spectating this match.
    */
@@ -307,8 +312,19 @@ export class Server {
   ) {
     // set up plain properties
     this.log = log.scope('gameserver');
+
+    // FACEIT detection (match may be a pseudo object with extra fields)
+    this.isFaceit = Boolean((match as any)?.isFaceit);
+    this.faceitRoom = (match as any)?.faceitRoom || null;
+
     this.match = match;
-    this.matchGame = match.games.find((game) => game.status !== Constants.MatchStatus.COMPLETED);
+
+    if (Array.isArray((match as any).games)) {
+      this.matchGame = match.games.find((game: any) => game.status !== Constants.MatchStatus.COMPLETED);
+    } else {
+      this.matchGame = null as any;
+    }
+
     this.profile = profile;
     this.settings = Util.loadSettings(profile.settings);
     this.scorebotEvents = [];
@@ -365,18 +381,54 @@ export class Server {
     }
 
     // build competitors data
-    this.competitors = match.competitors.map((competitor) => ({
-      ...competitor,
-      team: {
-        ...competitor.team,
-        players: Util.getSquad(
-          competitor.team,
-          this.profile,
-          false,
-          this.spectating && Constants.Application.SQUAD_MIN_LENGTH,
-        ),
-      },
-    }));
+    if (this.isFaceit && this.faceitRoom) {
+      // Build pseudo competitors from FACEIT match room
+      // Remove the real user from Team A so they don't spawn as a bot
+      const userId = this.profile.playerId;
+
+      const cleanTeamA = this.faceitRoom.teamA.filter((p: any) => p.id !== userId);
+      const cleanTeamB = this.faceitRoom.teamB as any[];
+
+      this.competitors = [
+        {
+          teamId: 1,
+          team: {
+            id: 1,
+            name: 'FACEIT TEAM A',
+            slug: 'faceit-a',
+            country: { code: 'EU' } as any,
+            players: cleanTeamA.map(
+              this.toServerPlayerFromMatchPlayer.bind(this),
+            ),
+          },
+        },
+        {
+          teamId: 2,
+          team: {
+            id: 2,
+            name: 'FACEIT TEAM B',
+            slug: 'faceit-b',
+            country: { code: 'EU' } as any,
+            players: cleanTeamB.map(
+              this.toServerPlayerFromMatchPlayer.bind(this),
+            ),
+          },
+        },
+      ] as any;
+    } else {
+      this.competitors = match.competitors.map((competitor) => ({
+        ...competitor,
+        team: {
+          ...competitor.team,
+          players: Util.getSquad(
+            competitor.team,
+            this.profile,
+            false,
+            this.spectating && Constants.Application.SQUAD_MIN_LENGTH,
+          ),
+        },
+      }));
+    }
   }
 
   /**
@@ -385,6 +437,10 @@ export class Server {
    * @function
    */
   private get hostname() {
+    if (this.isFaceit) {
+      return `FACEIT | PUG #${this.faceitRoom?.matchId ?? ''}`;
+    }
+     
     const { federation, tier } = this.match.competition;
     const idiomaticTierName = Constants.IdiomaticTier[tier.slug];
     return `${tier.league.name}: ${startCase(federation.slug)} | ${idiomaticTierName}`;
@@ -396,6 +452,21 @@ export class Server {
    * @function
    */
   private get map() {
+    if (this.isFaceit) {
+      // Random competitive map for FACEIT PUGs
+      const pool = [
+        'de_mirage',
+        'de_inferno',
+        'de_overpass',
+        'de_nuke',
+        'de_ancient',
+        'de_anubis',
+        'de_vertigo',
+      ];
+      const idx = random(0, pool.length - 1);
+      return pool[idx];
+    }
+
     return this.settings.matchRules.mapOverride || this.matchGame.map;
   }
 
@@ -405,6 +476,11 @@ export class Server {
    * @function
    */
   private get overtime() {
+    if (this.isFaceit) {
+      // FACEIT: use settings only
+      return this.settings.matchRules.overtime;
+    }
+
     // override if playoff match
     if (!this.match.competition.tier.groupSize) {
       return true;
@@ -559,10 +635,12 @@ export class Server {
   }
 
   /**
- * Generates a single bot profile block (used in botprofile.db)
- * Includes LookAngle tuning values based on difficulty template.
- */
-  private generateBotDifficulty(player: Server['competitors'][number]['team']['players'][number]) {
+   * Generates a single bot profile block (used in botprofile.db)
+   * Includes LookAngle tuning values based on difficulty template.
+   */
+  private generateBotDifficulty(
+    player: Server['competitors'][number]['team']['players'][number],
+  ) {
     const xp = new Bot.Exp(player);
     const template = xp.getBotTemplate();
     const difficulty = template.name;
@@ -581,19 +659,82 @@ export class Server {
     const personality = player.personality || Constants.PersonalityTemplate.RIFLE;
 
     // Lookup for LookAngle params by difficulty
-    const lookAngleMap: Record<string, { normal: number; attack: number; stiff: number; damp: number }> = {
-      [Constants.BotDifficulty.ABYSMAL]: { normal: 20000, attack: 9500, stiff: 600, damp: 27.5 },
-      [Constants.BotDifficulty.NOTGOOD]: { normal: 20000, attack: 10500, stiff: 625, damp: 30.0 },
-      [Constants.BotDifficulty.WORSE]: { normal: 20000, attack: 11500, stiff: 650, damp: 30.0 },
-      [Constants.BotDifficulty.REALLYBAD]: { normal: 20000, attack: 11500, stiff: 675, damp: 32.5 },
-      [Constants.BotDifficulty.POOR]: { normal: 20000, attack: 12500, stiff: 700, damp: 35.0 },
-      [Constants.BotDifficulty.BAD]: { normal: 20000, attack: 12500, stiff: 700, damp: 35.0 },
-      [Constants.BotDifficulty.LOW]: { normal: 20000, attack: 13500, stiff: 725, damp: 37.5 },
-      [Constants.BotDifficulty.AVG]: { normal: 20000, attack: 14500, stiff: 775, damp: 40.0 },
-      [Constants.BotDifficulty.MEDIUM]: { normal: 20000, attack: 15500, stiff: 800, damp: 42.5 },
-      [Constants.BotDifficulty.SOLID]: { normal: 20000, attack: 16500, stiff: 825, damp: 45.0 },
-      [Constants.BotDifficulty.FRAGGER]: { normal: 20000, attack: 17500, stiff: 850, damp: 47.5 },
-      [Constants.BotDifficulty.STAR]: { normal: 20000, attack: 20000, stiff: 900, damp: 50.0 },
+    const lookAngleMap: Record<
+      string,
+      { normal: number; attack: number; stiff: number; damp: number }
+    > = {
+      [Constants.BotDifficulty.ABYSMAL]: {
+        normal: 20000,
+        attack: 9500,
+        stiff: 600,
+        damp: 27.5,
+      },
+      [Constants.BotDifficulty.NOTGOOD]: {
+        normal: 20000,
+        attack: 10500,
+        stiff: 625,
+        damp: 30.0,
+      },
+      [Constants.BotDifficulty.WORSE]: {
+        normal: 20000,
+        attack: 11500,
+        stiff: 650,
+        damp: 30.0,
+      },
+      [Constants.BotDifficulty.REALLYBAD]: {
+        normal: 20000,
+        attack: 11500,
+        stiff: 675,
+        damp: 32.5,
+      },
+      [Constants.BotDifficulty.POOR]: {
+        normal: 20000,
+        attack: 12500,
+        stiff: 700,
+        damp: 35.0,
+      },
+      [Constants.BotDifficulty.BAD]: {
+        normal: 20000,
+        attack: 12500,
+        stiff: 700,
+        damp: 35.0,
+      },
+      [Constants.BotDifficulty.LOW]: {
+        normal: 20000,
+        attack: 13500,
+        stiff: 725,
+        damp: 37.5,
+      },
+      [Constants.BotDifficulty.AVG]: {
+        normal: 20000,
+        attack: 14500,
+        stiff: 775,
+        damp: 40.0,
+      },
+      [Constants.BotDifficulty.MEDIUM]: {
+        normal: 20000,
+        attack: 15500,
+        stiff: 800,
+        damp: 42.5,
+      },
+      [Constants.BotDifficulty.SOLID]: {
+        normal: 20000,
+        attack: 16500,
+        stiff: 825,
+        damp: 45.0,
+      },
+      [Constants.BotDifficulty.FRAGGER]: {
+        normal: 20000,
+        attack: 17500,
+        stiff: 850,
+        damp: 47.5,
+      },
+      [Constants.BotDifficulty.STAR]: {
+        normal: 20000,
+        attack: 20000,
+        stiff: 900,
+        damp: 50.0,
+      },
     };
 
     const look = lookAngleMap[difficulty] || lookAngleMap[Constants.BotDifficulty.ABYSMAL];
@@ -621,45 +762,37 @@ End\n
 
     // Build the export path inside LIGA's local server directory
     const exportDir = path.join(
-      process.env.APPDATA || "",
-      "LIGA Esports Manager",
-      "plugins",
-      "csgo",
-      "addons",
-      "sourcemod",
-      "configs"
+      process.env.APPDATA || '',
+      'LIGA Esports Manager',
+      'plugins',
+      'csgo',
+      'addons',
+      'sourcemod',
+      'configs',
     );
 
     await fs.promises.mkdir(exportDir, { recursive: true });
 
-    const exportFile = path.join(exportDir, "bot_templates.json");
-    await fs.promises.writeFile(exportFile, JSON.stringify(exportData, null, 2), "utf8");
+    const exportFile = path.join(exportDir, 'bot_templates.json');
+    await fs.promises.writeFile(exportFile, JSON.stringify(exportData, null, 2), 'utf8');
 
-    console.log(` Exported ${Object.keys(exportData).length} bot templates to ${exportFile}`);
+    console.log(
+      ` Exported ${Object.keys(exportData).length} bot templates to ${exportFile}`,
+    );
   }
 
   /**
-   * Patches the `steam.inf` file to restore
-   * CS:GO inventory interactions.
-   *
-   * Since the file  is controlled client-side we
-   * cannot patch it from the SourceMod plugin.
-   *
-   * @note csgo only.
-   * @function
+   * FACEIT helper: convert MatchPlayer → Server player-like object
    */
-  private async generateInventoryConfig() {
-    const original = path.join(
-      this.settings.general.gamePath,
-      this.baseDir,
-      this.gameDir,
-      Constants.GameSettings.CSGO_STEAM_INF_FILE,
-    );
-    const template = await fs.promises.readFile(original, 'utf8');
-    const content = template
-      .replace(/ClientVersion=[\d]+/g, `ClientVersion=${Constants.GameSettings.CSGO_VERSION}`)
-      .replace(/ServerVersion=[\d]+/g, `ServerVersion=${Constants.GameSettings.CSGO_VERSION}`);
-    return fs.promises.writeFile(original, content, 'utf8');
+  private toServerPlayerFromMatchPlayer(p: any) {
+    return {
+      id: p.id,
+      name: p.name,
+      role: p.role ?? null,
+      personality: p.personality ?? null,
+      countryId: p.countryId,
+      xp: p.xp ?? 0,
+    } as any;
   }
 
   /**
@@ -669,14 +802,23 @@ End\n
    * @function
    */
   private async generateMOTDConfig() {
+    // FACEIT: no MOTD / table, bail early
+    if (this.isFaceit) {
+      return;
+    }
+
     // figure out paths
     const gameBasePath = path.join(this.settings.general.gamePath, this.baseDir, this.gameDir);
 
     // get team positions
     const [home, away] = this.competitors;
     const [homeStats, awayStats] = [
-      this.match.competition.competitors.find((competitor) => competitor.teamId === home.teamId),
-      this.match.competition.competitors.find((competitor) => competitor.teamId === away.teamId),
+      this.match.competition.competitors.find(
+        (competitor) => competitor.teamId === home.teamId,
+      ),
+      this.match.competition.competitors.find(
+        (competitor) => competitor.teamId === away.teamId,
+      ),
     ];
 
     // generate the motd text file which simply redirects
@@ -726,13 +868,13 @@ End\n
   }
 
   /**
-  * Generates a SourceMod-compatible AWPers list file.
-  * Stored under LIGA's plugin configs so it's auto-copied to the server.
-  */
+   * Generates a SourceMod-compatible AWPers list file.
+   * Stored under LIGA's plugin configs so it's auto-copied to the server.
+   */
   private async generateAWPersFile() {
     const awpers = this.competitors
-      .flatMap(c => c.team.players)
-      .filter(p => p.role === Constants.PlayerRole.SNIPER);
+      .flatMap((c) => c.team.players)
+      .filter((p) => p.role === Constants.PlayerRole.SNIPER);
 
     // Build VDF structure
     const lines = ['"AWPers"', '{'];
@@ -750,7 +892,7 @@ End\n
       'csgo',
       'addons',
       'sourcemod',
-      'configs'
+      'configs',
     );
 
     // Make sure it exists
@@ -782,8 +924,14 @@ End\n
     );
     const template = await fs.promises.readFile(original, 'utf16le');
     const content = template
-      .replace(/"SFUI_bot_decorated_name"[\s]+"BOT %s1"/g, '"SFUI_bot_decorated_name" "%s1"')
-      .replace(/"SFUI_scoreboard_lbl_bot"[\s]+"BOT"/g, '"SFUI_scoreboard_lbl_bot" "5"');
+      .replace(
+        /"SFUI_bot_decorated_name"[\s]+"BOT %s1"/g,
+        '"SFUI_bot_decorated_name" "%s1"',
+      )
+      .replace(
+        /"SFUI_scoreboard_lbl_bot"[\s]+"BOT"/g,
+        '"SFUI_scoreboard_lbl_bot" "5"',
+      );
     return fs.promises.writeFile(original, content, 'utf16le');
   }
 
@@ -810,14 +958,24 @@ End\n
     );
     const botsCommandTemplate = await fs.promises.readFile(botCommandOriginal, 'utf8');
 
-    // get team positions
-    const [home, away] = this.competitors;
-    const [homeStats, awayStats] = [
-      this.match.competition.competitors.find((competitor) => competitor.teamId === home.teamId),
-      this.match.competition.competitors.find((competitor) => competitor.teamId === away.teamId),
-    ];
+    const [home, away] = this.competitors as any;
 
-    // generate bot commands
+    let homeStats: any;
+    let awayStats: any;
+
+    if (!this.isFaceit) {
+      [homeStats, awayStats] = [
+        this.match.competition.competitors.find(
+          (competitor) => competitor.teamId === home.teamId,
+        ),
+        this.match.competition.competitors.find(
+          (competitor) => competitor.teamId === away.teamId,
+        ),
+      ];
+    }
+
+    // generate bot commands (works for both tournament + FACEIT, since we
+    // built pseudo competitors for FACEIT in the ctor)
     const bots = flatten(
       this.competitors.map((competitor, idx) =>
         competitor.team.players.map((player) => {
@@ -828,7 +986,7 @@ End\n
             (competitor.teamId !== this.profile.teamId || this.spectating)
           ) {
             const template = Bot.Templates.find(
-              (t) => t.name === this.settings.general.botDifficulty
+              (t) => t.name === this.settings.general.botDifficulty,
             );
             if (template) {
               player.xp = template.baseXP;
@@ -845,42 +1003,70 @@ End\n
       ),
     );
 
+    // server.cfg variables
+    const serverCfgData = this.isFaceit
+      ? {
+        // FACEIT PUG config
+        demo: true,
+        freezetime: this.settings.matchRules.freezeTime,
+        hostname: this.hostname,
+        maxrounds: this.settings.matchRules.maxRounds || 30,
+        maxrounds_ot: this.settings.matchRules.maxRoundsOvertime || 6,
+        ot: +this.overtime,
+        rcon_password: Constants.GameSettings.RCON_PASSWORD,
+        teamname_t: home.team.name,
+        teamname_ct: away.team.name,
+        gameover_delay: Constants.GameSettings.SERVER_CVAR_GAMEOVER_DELAY,
+        bot_chatter: this.settings.general.botChatter,
+        spectating: +this.spectating,
+        startmoney: this.settings.matchRules.startMoney,
+        bombTimer: this.settings.matchRules.bombTimer,
+        defuserAllocation: this.settings.matchRules.defuserAllocation,
+
+        // scoreboard-ish
+        match_stat: 'FACEIT PUG',
+        teamflag_t: home.team.country?.code || 'EU',
+        teamflag_ct: away.team.country?.code || 'EU',
+        shortname_t: home.team.slug || 'FACEITA',
+        shortname_ct: away.team.slug || 'FACEITB',
+        stat_t: '',
+        stat_ct: '',
+      }
+      : {
+        // original tournament config
+        demo: true,
+        freezetime: this.settings.matchRules.freezeTime,
+        hostname: this.hostname,
+        maxrounds: this.settings.matchRules.maxRounds,
+        maxrounds_ot: this.settings.matchRules.maxRoundsOvertime,
+        ot: +this.overtime,
+        rcon_password: Constants.GameSettings.RCON_PASSWORD,
+        teamname_t: home.team.name,
+        teamname_ct: away.team.name,
+        gameover_delay: Constants.GameSettings.SERVER_CVAR_GAMEOVER_DELAY,
+        bot_chatter: this.settings.general.botChatter,
+        spectating: +this.spectating,
+        startmoney: this.settings.matchRules.startMoney,
+        bombTimer: this.settings.matchRules.bombTimer,
+        defuserAllocation: this.settings.matchRules.defuserAllocation,
+
+        // csgo only
+        match_stat: this.match.competition.tier.name,
+        teamflag_t: home.team.country.code,
+        teamflag_ct: away.team.country.code,
+        shortname_t: home.team.slug,
+        shortname_ct: away.team.slug,
+        stat_t: Util.toOrdinalSuffix(homeStats.position),
+        stat_ct: Util.toOrdinalSuffix(awayStats.position),
+      };
+
     // write the config files
     return Promise.all([
       fs.promises.writeFile(
         botCommandOriginal,
         Sqrl.render(botsCommandTemplate, { bots }, { autoEscape: false }),
       ),
-      fs.promises.writeFile(
-        original,
-        Sqrl.render(template, {
-          // general
-          demo: true,
-          freezetime: this.settings.matchRules.freezeTime,
-          hostname: this.hostname,
-          maxrounds: this.settings.matchRules.maxRounds,
-          maxrounds_ot: this.settings.matchRules.maxRoundsOvertime,
-          ot: +this.overtime,
-          rcon_password: Constants.GameSettings.RCON_PASSWORD,
-          teamname_t: home.team.name,
-          teamname_ct: away.team.name,
-          gameover_delay: Constants.GameSettings.SERVER_CVAR_GAMEOVER_DELAY,
-          bot_chatter: this.settings.general.botChatter,
-          spectating: +this.spectating,
-          startmoney: this.settings.matchRules.startMoney,
-          bombTimer: this.settings.matchRules.bombTimer,
-          defuserAllocation: this.settings.matchRules.defuserAllocation,
-
-          // csgo only
-          match_stat: this.match.competition.tier.name,
-          teamflag_t: home.team.country.code,
-          teamflag_ct: away.team.country.code,
-          shortname_t: home.team.slug,
-          shortname_ct: away.team.slug,
-          stat_t: Util.toOrdinalSuffix(homeStats.position),
-          stat_ct: Util.toOrdinalSuffix(awayStats.position),
-        }),
-      ),
+      fs.promises.writeFile(original, Sqrl.render(template, serverCfgData)),
     ]);
   }
 
@@ -918,7 +1104,10 @@ End\n
       Constants.Game.CS2,
       Constants.GameSettings.CSGO_LANGUAGE_FILE,
     );
-    const languageFileTarget = path.join(vpkSource, Constants.GameSettings.CSGO_LANGUAGE_FILE);
+    const languageFileTarget = path.join(
+      vpkSource,
+      Constants.GameSettings.CSGO_LANGUAGE_FILE,
+    );
     await FileManager.touch(languageFileTarget);
     await fs.promises.copyFile(languageFileSource, languageFileTarget);
 
@@ -927,7 +1116,10 @@ End\n
     await vpk.create();
 
     // copy the vpk over to the game dir
-    const vpkTarget = path.join(path.dirname(botProfilePath), Constants.GameSettings.CS2_VPK_FILE);
+    const vpkTarget = path.join(
+      path.dirname(botProfilePath),
+      Constants.GameSettings.CS2_VPK_FILE,
+    );
 
     try {
       await FileManager.touch(vpkTarget);
@@ -965,9 +1157,9 @@ End\n
     const content = template.replace(
       /(Game_LowViolence.+)/g,
       '$1\n\t\t\tGame\tcsgo/' +
-        Constants.GameSettings.CS2_VPK_METAMOD +
-        '\n\t\t\tGame\tcsgo/' +
-        Constants.GameSettings.CS2_VPK_FILE,
+      Constants.GameSettings.CS2_VPK_METAMOD +
+      '\n\t\t\tGame\tcsgo/' +
+      Constants.GameSettings.CS2_VPK_FILE,
     );
     return fs.promises.writeFile(original, content, 'utf8');
   }
@@ -991,7 +1183,9 @@ End\n
       });
     });
 
-    const [localAddress] = uniq(allAddresses.sort()).filter((IP) => IP !== '127.0.0.1');
+    const [localAddress] = uniq(allAddresses.sort()).filter(
+      (IP) => IP !== '127.0.0.1',
+    );
     return localAddress;
   }
 
@@ -1003,51 +1197,51 @@ End\n
    * @function
    */
   private async getTeamLogo(uri: string, useBase64 = true) {
-const { protocol, filePath } = /^(?<protocol>.+):\/\/(?<filePath>.+)/g.exec(uri).groups;
+    const { protocol, filePath } =
+      /^(?<protocol>.+):\/\/(?<filePath>.+)/g.exec(uri).groups;
 
+    if (!protocol || !filePath) {
+      return '';
+    }
 
-if (!protocol || !filePath) {
-return '';
-}
+    if (process.env['NODE_ENV'] === 'cli' && protocol === 'custom') {
+      return '';
+    }
 
+    let logoPath = '';
 
-if (process.env['NODE_ENV'] === 'cli' && protocol === 'custom') {
-return '';
-}
+    switch (protocol) {
+      case 'resources':
+        logoPath = path.join(this.resourcesPath, filePath);
+        break;
+      case 'custom':
+      case 'uploads':
+        logoPath =
+          process.env['NODE_ENV'] === 'cli'
+            ? path.join(
+              process.env.APPDATA as string,
+              'LIGA Esports Manager',
+              protocol,
+              filePath,
+            )
+            : path.join(app.getPath('userData'), protocol, filePath);
+        break;
+    }
 
+    if (useBase64) {
+      const MIME_TYPES: Record<string, string> = {
+        '.svg': 'image/svg+xml',
+        '.jpg': 'image/jpeg',
+        '.png': 'image/png',
+      };
+      const ext = path.extname(logoPath);
+      const base64 = await fs.promises.readFile(logoPath, { encoding: 'base64' });
+      const mime = MIME_TYPES[ext.toLowerCase()];
+      return `data:${mime};base64,${base64}`;
+    }
 
-let logoPath = '';
-
-
-switch (protocol) {
-case 'resources':
-logoPath = path.join(this.resourcesPath, filePath);
-break;
-case 'custom':
-case 'uploads':
-logoPath =
-process.env['NODE_ENV'] === 'cli'
-? path.join(process.env.APPDATA as string, 'LIGA Esports Manager', protocol, filePath)
-: path.join(app.getPath('userData'), protocol, filePath);
-break;
-}
-
-
-if (useBase64) {
-const MIME_TYPES: Record<string, string> = {
-'.svg': 'image/svg+xml',
-'.jpg': 'image/jpeg',
-'.png': 'image/png',
-};
-const ext = path.extname(logoPath);
-const base64 = await fs.promises.readFile(logoPath, { encoding: 'base64' });
-const mime = MIME_TYPES[ext.toLowerCase()];
-return `data:${mime};base64,${base64}`;
-}
-
-
-return logoPath;
-}
+    return logoPath;
+  }
 
   /**
    * This is only needed because cs2 will sometimes
@@ -1099,7 +1293,12 @@ return logoPath;
         Util.convertMapPool(this.map, this.settings.general.game),
         ...this.userArgs,
       ],
-      { cwd: path.join(this.settings.general.gamePath, Constants.GameSettings.CS16_BASEDIR) },
+      {
+        cwd: path.join(
+          this.settings.general.gamePath,
+          Constants.GameSettings.CS16_BASEDIR,
+        ),
+      },
     );
 
     gameClientProcess.on('close', this.cleanup.bind(this));
@@ -1130,7 +1329,12 @@ return logoPath;
         Constants.GameSettings.CS2_SERVER_CONFIG_FILE,
         ...this.userArgs,
       ],
-      { cwd: path.join(this.settings.general.gamePath, Constants.GameSettings.CS2_BASEDIR) },
+      {
+        cwd: path.join(
+          this.settings.general.gamePath,
+          Constants.GameSettings.CS2_BASEDIR,
+        ),
+      },
     );
 
     gameClientProcess.on('close', this.cleanup.bind(this));
@@ -1145,42 +1349,47 @@ return logoPath;
   private launchClientCSGO() {
     const defaultArgs = [
       '-novid',
-      '+connect', `${this.getLocalIP()}:${Constants.GameSettings.RCON_PORT}`
+      '+connect',
+      `${this.getLocalIP()}:${Constants.GameSettings.RCON_PORT}`,
     ];
 
+    const fixedSteamPath = path.join(
+      this.settings.general.gamePath,
+      Constants.GameSettings.CSGO_BASEDIR,
+    );
 
-const fixedSteamPath = path.join(
-this.settings.general.gamePath,
-Constants.GameSettings.CSGO_BASEDIR,
-);
+    defaultArgs.unshift('-insecure');
 
+    if (is.osx()) {
+      gameClientProcess = spawn(
+        'open',
+        [
+          `steam://rungameid/${Constants.GameSettings.CSGO_APPID}//'${defaultArgs.join(
+            ' ',
+          )}'`,
+        ],
+        { shell: true },
+      );
+    } else {
+      gameClientProcess = spawn(
+        Constants.GameSettings.CSGO_EXE,
+        [
+          '-applaunch',
+          Constants.GameSettings.CSGO_APPID.toString(),
+          ...defaultArgs,
+          ...this.userArgs,
+        ],
+        { cwd: fixedSteamPath },
+      );
+    }
 
-defaultArgs.unshift('-insecure');
-
-
-if (is.osx()) {
-gameClientProcess = spawn(
-'open',
-[`steam://rungameid/${Constants.GameSettings.CSGO_APPID}//'${defaultArgs.join(' ')}'`],
-{ shell: true },
-);
-} else {
-gameClientProcess = spawn(
-Constants.GameSettings.CSGO_EXE,
-['-applaunch', Constants.GameSettings.CSGO_APPID.toString(), ...defaultArgs, ...this.userArgs],
-{ cwd: fixedSteamPath },
-);
-}
-
-
-gameClientProcess.on('close', this.cleanup.bind(this));
-this.log.debug(gameClientProcess.spawnargs);
-return Promise.resolve();
-}
+    gameClientProcess.on('close', this.cleanup.bind(this));
+    this.log.debug(gameClientProcess.spawnargs);
+    return Promise.resolve();
+  }
 
   private launchServerCSGO() {
-    const serverRoot =
-      this.settings.general.dedicatedServerPath
+    const serverRoot = this.settings.general.dedicatedServerPath;
     const serverExe = path.join(serverRoot, 'srcds.exe');
     const serverCfg = 'server.cfg';
 
@@ -1189,32 +1398,43 @@ return Promise.resolve();
       '-usercon',
       '-insecure',
       '-tickrate 128',
-      '-maxplayers_override', '12',
-      '-game', 'csgo',
-      '-port', Constants.GameSettings.RCON_PORT.toString(),
-      '+exec', serverCfg,
-      '+map', Util.convertMapPool(this.map, this.settings.general.game),
-      '+rcon_password', Constants.GameSettings.RCON_PASSWORD
+      '-maxplayers_override',
+      '12',
+      '-game',
+      'csgo',
+      '-port',
+      Constants.GameSettings.RCON_PORT.toString(),
+      '+exec',
+      serverCfg,
+      '+map',
+      Util.convertMapPool(this.map, this.settings.general.game),
+      '+rcon_password',
+      Constants.GameSettings.RCON_PASSWORD,
     ];
 
     const srcdsCommand = `"${serverExe}" ${args.join(' ')}`;
 
     // Escape quotes so cmd.exe interprets correctly
-    const cmdString = `E: && cd /d "${path.join(serverRoot, 'csgo')}" && ${srcdsCommand}`;
+    const cmdString = `E: && cd /d "${path.join(
+      serverRoot,
+      'csgo',
+    )}" && ${srcdsCommand}`;
 
     spawn(
       'cmd.exe',
       [
         '/c',
-        'start', '""',
-        'cmd', '/c',
-        cmdString
+        'start',
+        '""',
+        'cmd',
+        '/c',
+        cmdString,
       ],
       {
         detached: true,
         windowsHide: false,
-        shell: true
-      }
+        shell: true,
+      },
     );
   }
 
@@ -1240,7 +1460,11 @@ return Promise.resolve();
     if (is.osx()) {
       gameClientProcess = spawn(
         'open',
-        [`steam://rungameid/${Constants.GameSettings.CSSOURCE_APPID}//'${commonFlags.join(' ')}'`],
+        [
+          `steam://rungameid/${Constants.GameSettings.CSSOURCE_APPID}//'${commonFlags.join(
+            ' ',
+          )}'`,
+        ],
         { shell: true },
       );
     } else {
@@ -1248,7 +1472,10 @@ return Promise.resolve();
         Constants.GameSettings.CSSOURCE_EXE,
         ['-game', Constants.GameSettings.CSSOURCE_GAMEDIR, ...commonFlags],
         {
-          cwd: path.join(this.settings.general.gamePath, Constants.GameSettings.CSSOURCE_BASEDIR),
+          cwd: path.join(
+            this.settings.general.gamePath,
+            Constants.GameSettings.CSSOURCE_BASEDIR,
+          ),
         },
       );
     }
@@ -1283,7 +1510,12 @@ return Promise.resolve();
         Util.convertMapPool(this.map, this.settings.general.game),
         ...this.userArgs,
       ],
-      { cwd: path.join(this.settings.general.gamePath, Constants.GameSettings.CZERO_BASEDIR) },
+      {
+        cwd: path.join(
+          this.settings.general.gamePath,
+          Constants.GameSettings.CZERO_BASEDIR,
+        ),
+      },
     );
 
     gameClientProcess.on('close', this.cleanup.bind(this));
@@ -1292,11 +1524,11 @@ return Promise.resolve();
   }
 
   /**
- * Sets up and configures the files that are
- * necessary for the game server to run.
- *
- * @function
- */
+   * Sets up and configures the files that are
+   * necessary for the game server to run.
+   *
+   * @function
+   */
   private async prepare() {
     // determine the correct game directory name
     const localGameDir = (() => {
@@ -1317,8 +1549,7 @@ return Promise.resolve();
     // if game is CS:GO, use dedicated server path instead of client path
     const isDedicated = this.settings.general.game === Constants.Game.CSGO;
     const dedicatedServerPath =
-      this.settings.general.dedicatedServerPath ||
-      'E:/steamcmd/csgo-ds'; // fallback
+      this.settings.general.dedicatedServerPath || 'E:/steamcmd/csgo-ds'; // fallback
 
     const to = isDedicated
       ? path.join(dedicatedServerPath, 'csgo')
@@ -1336,7 +1567,9 @@ return Promise.resolve();
 
     // find and extract zip files
     const zipFiles = await glob('**/*.zip', { cwd: from });
-    await Promise.all(zipFiles.map((file) => FileManager.extract(path.join(from, file), to)));
+    await Promise.all(
+      zipFiles.map((file) => FileManager.extract(path.join(from, file), to)),
+    );
 
     // copy plain files
     await FileManager.copy('**/!(*.zip)', from, to);
@@ -1359,7 +1592,6 @@ return Promise.resolve();
         break;
       default:
         // CSGO and others
-        await this.generateInventoryConfig();
         await this.generateScoreboardConfig();
         await this.generateBetterBotsConfig();
         break;
@@ -1376,43 +1608,43 @@ return Promise.resolve();
    * @function
    */
   public async start(): Promise<void> {
-  await this.prepare();
+    await this.prepare();
 
-  switch (this.settings.general.game) {
-    case Constants.Game.CS16:
-      await this.launchClientCS16();
-      break;
-    case Constants.Game.CS2:
-      await this.launchClientCS2();
-      break;
-    case Constants.Game.CSS:
-      await this.launchClientCSS();
-      break;
-    case Constants.Game.CZERO:
-      await this.launchClientCZERO();
-      break;
-    default:
-      this.launchServerCSGO();
-      break;
+    switch (this.settings.general.game) {
+      case Constants.Game.CS16:
+        await this.launchClientCS16();
+        break;
+      case Constants.Game.CS2:
+        await this.launchClientCS2();
+        break;
+      case Constants.Game.CSS:
+        await this.launchClientCSS();
+        break;
+      case Constants.Game.CZERO:
+        await this.launchClientCZERO();
+        break;
+      default:
+        this.launchServerCSGO();
+        break;
+    }
+
+    this.rcon = new RCON.Client(
+      this.getLocalIP(),
+      Constants.GameSettings.RCON_PORT,
+      Constants.GameSettings.RCON_PASSWORD,
+      {
+        tcp:
+          this.settings.general.game !== Constants.Game.CS16 &&
+          this.settings.general.game !== Constants.Game.CZERO,
+        retryMax: Constants.GameSettings.RCON_MAX_ATTEMPTS,
+      },
+    );
+
+    try {
+      await this.rcon.init();
+      await this.launchClientCSGO();
+    } catch (error) {
+      this.log.warn(error);
+    }
   }
-
-  this.rcon = new RCON.Client(
-    this.getLocalIP(),
-    Constants.GameSettings.RCON_PORT,
-    Constants.GameSettings.RCON_PASSWORD,
-    {
-      tcp:
-        this.settings.general.game !== Constants.Game.CS16 &&
-        this.settings.general.game !== Constants.Game.CZERO,
-      retryMax: Constants.GameSettings.RCON_MAX_ATTEMPTS,
-    },
-  );
-
-  try {
-    await this.rcon.init();
-    await this.launchClientCSGO(); 
-  } catch (error) {
-    this.log.warn(error);
-  }
-}
 }

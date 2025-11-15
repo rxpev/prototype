@@ -5,6 +5,7 @@ import { levelFromElo } from "@liga/backend/lib/levels";
 export interface MatchPlayer {
   id: number;
   name: string;
+  xp: number;
   elo: number;
   level: number;
   role: string | null;
@@ -183,6 +184,7 @@ export class FaceitMatchmaker {
     const convert = (b: Player): MatchPlayer => ({
       id: b.id,
       name: b.name,
+      xp: b.xp,
       elo: b.elo,
       level: levelFromElo(b.elo),
       role: b.role,
@@ -194,6 +196,7 @@ export class FaceitMatchmaker {
     const userPlayer: MatchPlayer = {
       id: userDb.id,
       name: userDb.name,
+      xp: userDb.xp,
       elo: userElo,
       level: levelFromElo(userElo),
       role: userDb.role,

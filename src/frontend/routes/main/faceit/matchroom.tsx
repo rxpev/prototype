@@ -81,7 +81,12 @@ export default function MatchRoom({
               </div>
             </div>
 
-            <button className="mt-6 px-8 py-3 bg-orange-600 rounded hover:bg-orange-700 text-lg">
+            <button
+              className="mt-6 px-8 py-3 bg-orange-600 rounded hover:bg-orange-700 text-lg"
+              onClick={async () => {
+                await api.faceit.startMatch(room);
+              }}
+            >
               START MATCH
             </button>
           </div>

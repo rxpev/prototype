@@ -6,8 +6,9 @@
     "\\src\\frontend",
     "\\src\\frontend\\routes",
     "\\src\\frontend\\routes\\main",
-    "\\src\\frontend\\routes\\main\\faceit"
+    "\\src\\frontend\\routes\\main\\faceit",
+    "\\src\\shared"
   ],
-  "SelectedNode": "\\src\\frontend\\routes\\main\\index.ts",
+  "SelectedNode": "\\src\\shared\\bot.ts",
   "PreviewInSolutionExplorer": false
 }

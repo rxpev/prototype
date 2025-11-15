@@ -120,11 +120,10 @@ export default {
         faceitLevel: number;
         recent: any[];
       }>,
-
     queue: () =>
-      ipcRenderer.invoke('faceit:queuePug') as Promise<{
-        pugId: string | number;
-      }>,
+      ipcRenderer.invoke('faceit:queuePug') as Promise<any>,
+    startMatch: (room: any) =>
+      ipcRenderer.invoke('faceit:startMatch', room),
   },
   ipc: {
     invoke: (route: string, payload: unknown) =>
