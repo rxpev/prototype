@@ -3,225 +3,175 @@
  *
  * @module
  */
-import { keyBy, merge, values, xorBy } from 'lodash';
-import { ReduxActions } from './actions';
-import { AppAction, AppActions, AppState, InitialState } from './state';
+import { keyBy, merge, values, xorBy } from "lodash";
+import { ReduxActions } from "./actions";
+import { AppAction, AppState, InitialState } from "./state";
 
-/**
- * @param state Application state.
- * @param action Redux action.
- * @function
- */
-function appInfo(
-  state: typeof InitialState.appInfo,
-  action: AppAction<typeof InitialState.appInfo>,
-) {
-  switch (action.type) {
-    case ReduxActions.APP_INFO_UPDATE:
-      return action.payload as typeof state;
-    default:
-      return state;
-  }
+/** --- Simple reducers --- */
+
+function appInfo(state = InitialState.appInfo, action: AppAction) {
+  return action.type === ReduxActions.APP_INFO_UPDATE
+    ? action.payload
+    : state;
 }
 
-/**
- * @param state Application state.
- * @param action Redux action.
- * @function
- */
-function appStatus(
-  state: typeof InitialState.appStatus,
-  action: AppAction<typeof InitialState.appStatus>,
-) {
-  switch (action.type) {
-    case ReduxActions.APP_STATUS_UPDATE:
-      return action.payload;
-    default:
-      return state;
-  }
+function appStatus(state = InitialState.appStatus, action: AppAction) {
+  return action.type === ReduxActions.APP_STATUS_UPDATE
+    ? action.payload
+    : state;
 }
 
-/**
- * @param state Application state.
- * @param action Redux action.
- * @function
- */
-function continents(
-  state: typeof InitialState.continents,
-  action: AppAction<typeof InitialState.continents>,
-) {
-  switch (action.type) {
-    case ReduxActions.CONTINENTS_UPDATE:
-      return action.payload;
-    default:
-      return state;
-  }
+function continents(state = InitialState.continents, action: AppAction) {
+  return action.type === ReduxActions.CONTINENTS_UPDATE
+    ? action.payload
+    : state;
 }
 
-/**
- * @param state Application state.
- * @param action Redux action.
- * @function
- */
-function emails(state: typeof InitialState.emails, action: AppAction<typeof InitialState.emails>) {
+function emails(state = InitialState.emails, action: AppAction) {
   switch (action.type) {
     case ReduxActions.EMAILS_DELETE:
-      return xorBy(state, action.payload, 'id');
+      return xorBy(state, action.payload, "id");
+
     case ReduxActions.EMAILS_UPDATE:
-      // merges the two arrays, replacing the entries that overlap with the payload
-      return values(merge(keyBy(state, 'id'), keyBy(action.payload, 'id')))
-        .sort((a, b) => b.sentAt.valueOf() - a.sentAt.valueOf())
-        .map((email) => {
-          // sort the email internal entries
-          email.dialogues.sort((a, b) => b.sentAt.valueOf() - a.sentAt.valueOf());
+      return values(merge(keyBy(state, "id"), keyBy(action.payload, "id")))
+        .sort((a: any, b: any) => b.sentAt.valueOf() - a.sentAt.valueOf())
+        .map((email: any) => {
+          email.dialogues.sort(
+            (a: any, b: any) => b.sentAt.valueOf() - a.sentAt.valueOf()
+          );
           return email;
         });
+
     default:
       return state;
   }
 }
 
-/**
- * @param state Application state.
- * @param action Redux action.
- * @function
- */
-function locale(state: typeof InitialState.locale, action: AppAction<typeof InitialState.locale>) {
-  switch (action.type) {
-    case ReduxActions.LOCALE_UPDATE:
-      return action.payload as typeof state;
-    default:
-      return state;
-  }
+function locale(state = InitialState.locale, action: AppAction) {
+  return action.type === ReduxActions.LOCALE_UPDATE
+    ? action.payload
+    : state;
 }
 
-/**
- * @param state Application state.
- * @param action Redux action.
- * @function
- */
-function playing(
-  state: typeof InitialState.playing,
-  action: AppAction<typeof InitialState.playing>,
-) {
-  switch (action.type) {
-    case ReduxActions.PLAYING_UPDATE:
-      return action.payload;
-    default:
-      return state;
-  }
+function playing(state = InitialState.playing, action: AppAction) {
+  return action.type === ReduxActions.PLAYING_UPDATE
+    ? action.payload
+    : state;
 }
 
-/**
- * @param state Application state.
- * @param action Redux action.
- * @function
- */
-function profile(
-  state: typeof InitialState.profile,
-  action: AppAction<typeof InitialState.profile>,
-) {
-  switch (action.type) {
-    case ReduxActions.PROFILE_UPDATE:
-      return action.payload;
-    default:
-      return state;
-  }
+function profile(state = InitialState.profile, action: AppAction) {
+  return action.type === ReduxActions.PROFILE_UPDATE
+    ? action.payload
+    : state;
 }
 
-/**
- * @param state Application state.
- * @param action Redux action.
- * @function
- */
-function profiles(
-  state: typeof InitialState.profiles,
-  action: AppAction<typeof InitialState.profiles>,
-) {
+function profiles(state = InitialState.profiles, action: AppAction) {
   switch (action.type) {
-    case ReduxActions.PROFILES_DELETE: {
-      // @todo: support deleting multiple items
-      const [item] = action.payload;
-      return state.filter((profile) => profile.id !== item.id);
-    }
+    case ReduxActions.PROFILES_DELETE:
+      return state.filter((p) => p.id !== action.payload[0].id);
+
     case ReduxActions.PROFILES_UPDATE:
       return action.payload;
+
     default:
       return state;
   }
 }
 
-/**
- * @param state Application state.
- * @param action Redux action.
- * @function
- */
-function shortlist(
-  state: typeof InitialState.shortlist,
-  action: AppAction<typeof InitialState.shortlist>,
+function shortlist(state = InitialState.shortlist, action: AppAction) {
+  return action.type === ReduxActions.SHORTLIST_UPDATE
+    ? action.payload
+    : state;
+}
+
+function windowData(state = InitialState.windowData, action: AppAction) {
+  return action.type === ReduxActions.WINDOW_DATA_UPDATE
+    ? merge({}, state, action.payload)
+    : state;
+}
+
+function working(state = InitialState.working, action: AppAction) {
+  return action.type === ReduxActions.WORKING_UPDATE
+    ? action.payload
+    : state;
+}
+
+/** ---------------------------- */
+/** FACEIT REDUCERS */
+/** ---------------------------- */
+
+function faceitMatchRoom(
+  state = InitialState.faceitMatchRoom,
+  action: AppAction
 ) {
   switch (action.type) {
-    case ReduxActions.SHORTLIST_UPDATE:
-      return action.payload;
+    case ReduxActions.FACEIT_ROOM_SET:
+      return action.payload.room;
+
+    case ReduxActions.FACEIT_ROOM_CLEAR:
+      return null;
+
     default:
       return state;
   }
 }
 
-/**
- * @param state Application state.
- * @param action Redux action.
- * @function
- */
-function windowData(
-  state: typeof InitialState.windowData,
-  action: AppAction<typeof InitialState.windowData>,
+function faceitMatchId(
+  state = InitialState.faceitMatchId,
+  action: AppAction
 ) {
   switch (action.type) {
-    case ReduxActions.WINDOW_DATA_UPDATE:
-      return merge(state, action.payload);
+    case ReduxActions.FACEIT_ROOM_SET:
+      return action.payload.matchId ?? null;
+
+    case ReduxActions.FACEIT_ROOM_CLEAR:
+      return null;
+
     default:
       return state;
   }
 }
 
-/**
- * @param state Application state.
- * @param action Redux action.
- * @function
- */
-function working(
-  state: typeof InitialState.working,
-  action: AppAction<typeof InitialState.working>,
+function faceitMatchCompleted(
+  state = InitialState.faceitMatchCompleted,
+  action: AppAction
 ) {
   switch (action.type) {
-    case ReduxActions.WORKING_UPDATE:
-      return action.payload;
+    case ReduxActions.FACEIT_MATCH_COMPLETED:
+      return true;
+
+    case ReduxActions.FACEIT_ROOM_CLEAR:
+      return false;
+
     default:
       return state;
   }
 }
 
-/**
- * Exports this module.
- *
- * @param state Application state.
- * @param action Redux action.
- * @function
- * @exports
- */
-export default function (state: AppState, action: AppActions) {
+/** ---------------------------- */
+/** ROOT REDUCER */
+/** ---------------------------- */
+
+export default function reducer(state: AppState, action: AppAction) {
   return {
-    appInfo: appInfo(state.appInfo, action as AppAction<typeof state.appInfo>),
-    appStatus: appStatus(state.appStatus, action as AppAction<typeof state.appStatus>),
-    continents: continents(state.continents, action as AppAction<typeof state.continents>),
-    emails: emails(state.emails, action as AppAction<typeof state.emails>),
-    locale: locale(state.locale, action as AppAction<typeof state.locale>),
-    playing: playing(state.playing, action as AppAction<typeof state.playing>),
-    profile: profile(state.profile, action as AppAction<typeof state.profile>),
-    profiles: profiles(state.profiles, action as AppAction<typeof state.profiles>),
-    shortlist: shortlist(state.shortlist, action as AppAction<typeof state.shortlist>),
-    windowData: windowData(state.windowData, action as AppAction<typeof state.windowData>),
-    working: working(state.working, action as AppAction<typeof state.working>),
+    appInfo: appInfo(state.appInfo, action),
+    appStatus: appStatus(state.appStatus, action),
+    continents: continents(state.continents, action),
+    emails: emails(state.emails, action),
+    locale: locale(state.locale, action),
+    playing: playing(state.playing, action),
+    profile: profile(state.profile, action),
+    profiles: profiles(state.profiles, action),
+    shortlist: shortlist(state.shortlist, action),
+    windowData: windowData(state.windowData, action),
+    working: working(state.working, action),
+
+    /** FACEIT */
+    faceitMatchRoom: faceitMatchRoom(state.faceitMatchRoom, action),
+    faceitMatchId: faceitMatchId(state.faceitMatchId, action),
+    faceitMatchCompleted: faceitMatchCompleted(
+      state.faceitMatchCompleted,
+      action
+    ),
   };
 }

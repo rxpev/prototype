@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import MatchRoom from "./matchroom";
 import { AppStateContext } from "@liga/frontend/redux";
+import { faceitRoomSet } from "@liga/frontend/redux/actions";
+import { faceitRoomClear } from "@liga/frontend/redux/actions";
 
 import faceitLogo from "../../../assets/faceit/faceit.png";
 import level1 from "../../../assets/faceit/1.png";
@@ -28,6 +30,33 @@ export const LEVEL_IMAGES = [
   level10,
 ];
 
+// ---- Local types ---------------------------------------------------
+
+type RecentMatch = {
+  id: number;
+  map: string;
+  yourTeamWon: boolean;
+  eloDelta?: number | null;
+};
+
+type MatchPlayer = {
+  id: number;
+  name: string;
+  elo: number;
+  level: number;
+  countryId: number;
+};
+
+type MatchRoomData = {
+  fakeRoomId: string;
+  teamA: MatchPlayer[];
+  teamB: MatchPlayer[];
+  expectedWinA: number;
+  expectedWinB: number;
+  eloGain: number;
+  eloLoss: number;
+};
+
 const LEVEL_RANGES: Record<number, [number, number]> = {
   1: [100, 800],
   2: [801, 950],
@@ -41,34 +70,42 @@ const LEVEL_RANGES: Record<number, [number, number]> = {
   10: [2001, 10000],
 };
 
-export default function Faceit() {
+export default function Faceit(): JSX.Element {
+  const { state, dispatch } = React.useContext(AppStateContext);
+
+  // persistent match state
+  const activeMatch = state.faceitMatchRoom;
+  const activeMatchId = state.faceitMatchId;
+  const matchCompleted = state.faceitMatchCompleted;
+
+  const [showMatchRoom, setShowMatchRoom] = useState(false);
+
   const [elo, setElo] = useState(0);
   const [level, setLevel] = useState(0);
-  const [recent, setRecent] = useState<any[]>([]);
+  const [recent, setRecent] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const [queueing, setQueueing] = useState(false);
   const [queueTimer, setQueueTimer] = useState(0);
-  const [queueInterval, setQueueInterval] = useState<NodeJS.Timeout | null>(
-    null
-  );
+  const [queueInterval, setQueueInterval] = useState(null);
 
-  const [matchRoom, setMatchRoom] = useState<any | null>(null);
+  useEffect(() => {
+    if (state.faceitMatchCompleted && !showMatchRoom) {
+      dispatch(faceitRoomClear());
+    }
+  }, [state.faceitMatchCompleted, showMatchRoom]);
 
-  const { state } = React.useContext(AppStateContext);
-
-  // Refresh Elo after match
   const refreshProfile = async () => {
     const data = await api.faceit.profile();
     setElo(data.faceitElo);
     setLevel(data.faceitLevel);
   };
 
-  // Country Lookup
+  // Country map
   const COUNTRY_BY_ID = React.useMemo(() => {
     const map = new Map<number, string>();
-    for (const continent of state.continents) {
-      for (const country of continent.countries) {
+    for (const continent of state.continents as any[]) {
+      for (const country of continent.countries as any[]) {
         map.set(country.id, country.code.toLowerCase());
       }
     }
@@ -91,8 +128,7 @@ export default function Faceit() {
   // ------------------------------
 
   const startQueue = () => {
-    if (queueing) return;
-
+    if (queueing || activeMatch) return;
     setQueueing(true);
     setQueueTimer(0);
 
@@ -119,7 +155,8 @@ export default function Faceit() {
   const finishQueue = async () => {
     try {
       const res = await api.faceit.queue();
-      setMatchRoom(res);
+      dispatch(faceitRoomSet(res, null));
+      setShowMatchRoom(true);
     } finally {
       setQueueing(false);
       setQueueTimer(0);
@@ -137,13 +174,17 @@ export default function Faceit() {
   const [low, high] = LEVEL_RANGES[level] ?? [0, 100];
   const pct = ((elo - low) / (high - low)) * 100;
 
+  const currentMatch = showMatchRoom && activeMatch ? activeMatch : null;
+
   return (
     <div className="w-full h-full bg-[#0b0b0b] text-white">
-      {matchRoom ? (
+      {currentMatch ? (
         <MatchRoom
-          room={matchRoom}
+          room={currentMatch}
           countryMap={COUNTRY_BY_ID}
-          onClose={() => setMatchRoom(null)}
+          onClose={() => {
+            setShowMatchRoom(false);
+          }}
           onEloUpdate={refreshProfile}
           elo={elo}
           level={level}
@@ -161,6 +202,10 @@ export default function Faceit() {
             cancelQueue={cancelQueue}
             queueing={queueing}
             queueTimer={queueTimer}
+
+              activeMatch={matchCompleted ? null : activeMatch}
+
+            reopenMatchRoom={() => setShowMatchRoom(true)}
           />
         </>
       )}
@@ -169,8 +214,16 @@ export default function Faceit() {
 }
 
 // ------------------------------------------------
-// HEADER BAR
+// HEADER BAR (unchanged)
 // ------------------------------------------------
+
+interface FaceitHeaderProps {
+  elo: number;
+  level: number;
+  pct: number;
+  low: number;
+  high: number;
+}
 
 export function FaceitHeader({
   elo,
@@ -178,13 +231,7 @@ export function FaceitHeader({
   pct,
   low,
   high,
-}: {
-  elo: number;
-  level: number;
-  pct: number;
-  low: number;
-  high: number;
-}) {
+}: FaceitHeaderProps): JSX.Element {
   return (
     <div className="w-full bg-[#0f0f0f] border-b border-[#ff7300]/60 py-4 shadow-lg flex items-center justify-between">
       <img src={faceitLogo} className="h-10 ml-4 select-none" />
@@ -216,8 +263,18 @@ export function FaceitHeader({
 }
 
 // ------------------------------------------------
-// BODY (STATS + FIND MATCH + RECENT MATCHES)
+// BODY (unchanged except activeMatch is now Redux)
 // ------------------------------------------------
+
+interface NormalFaceitBodyProps {
+  recent: RecentMatch[];
+  startQueue: () => void;
+  cancelQueue: () => void;
+  queueing: boolean;
+  queueTimer: number;
+  activeMatch: MatchRoomData | null;
+  reopenMatchRoom: () => void;
+}
 
 function NormalFaceitBody({
   recent,
@@ -225,13 +282,9 @@ function NormalFaceitBody({
   cancelQueue,
   queueing,
   queueTimer,
-}: {
-  recent: any[];
-  startQueue: () => void;
-  cancelQueue: () => void;
-  queueing: boolean;
-  queueTimer: number;
-}) {
+  activeMatch,
+  reopenMatchRoom,
+}: NormalFaceitBodyProps): JSX.Element {
   return (
     <div className="grid grid-cols-3 gap-6 p-6 h-[calc(100vh-160px)]">
       {/* STATS */}
@@ -248,7 +301,7 @@ function NormalFaceitBody({
         </div>
       </div>
 
-      {/* FIND MATCH BUTTON */}
+      {/* FIND MATCH / GO TO MATCH BUTTON */}
       <div className="bg-[#0f0f0f] rounded-lg border border-[#ffffff15] flex flex-col">
         <div className="w-full bg-[#0c0c0c] py-3 flex justify-center items-center border-b border-[#ff7300]/40">
           <h2 className="text-lg font-bold">MATCHMAKING</h2>
@@ -256,27 +309,37 @@ function NormalFaceitBody({
 
         <div className="p-6 flex justify-center">
           <div className="relative">
-            <button
-              onClick={!queueing ? startQueue : undefined}
-              className={`px-12 py-5 text-xl rounded text-white shadow-lg transition-all 
-                  ${queueing
-                  ? "bg-orange-500 cursor-default"
-                  : "bg-orange-600 hover:bg-orange-700"
-                }`}
-            >
-              {!queueing
-                ? "FIND MATCH"
-                : `SEARCHING... ${queueTimer}s`}
-            </button>
-
-            {queueing && (
+            {activeMatch ? (
               <button
-                onClick={cancelQueue}
-                className="absolute -top-2 -right-2 w-6 h-6 flex items-center justify-center
-                rounded-full bg-red-600 hover:bg-red-700 text-white text-sm shadow-md"
+                onClick={reopenMatchRoom}
+                className="px-12 py-5 text-xl rounded text-white shadow-lg bg-orange-600 hover:bg-orange-700"
               >
-                ×
+                GO TO MATCH
               </button>
+            ) : (
+              <>
+                <button
+                  onClick={!queueing ? startQueue : undefined}
+                  className={`px-12 py-5 text-xl rounded text-white shadow-lg transition-all 
+                    ${queueing
+                      ? "bg-orange-600 cursor-default"
+                      : "bg-orange-600 hover:bg-orange-700"
+                    }
+                  `}
+                >
+                  {!queueing ? "FIND MATCH" : `SEARCHING... ${queueTimer}s`}
+                </button>
+
+                {queueing && (
+                  <button
+                    onClick={cancelQueue}
+                    className="absolute -top-2 -right-2 w-6 h-6 flex items-center justify-center
+                      rounded-full bg-red-600 hover:bg-red-700 text-white text-sm shadow-md"
+                  >
+                    ×
+                  </button>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -294,7 +357,7 @@ function NormalFaceitBody({
           )}
 
           <div className="space-y-2 mt-2">
-            {recent.map((m) => (
+            {recent.map((m: RecentMatch) => (
               <div key={m.id} className="p-3 bg-neutral-800 rounded">
                 <div>{m.map}</div>
                 <div>{m.yourTeamWon ? "Win" : "Loss"}</div>

@@ -3,10 +3,10 @@
  *
  * @module
  */
-import { Constants, Util } from '@liga/shared';
-import { AppDispatch, AppState } from './state';
+import { Constants, Util } from "@liga/shared";
+import { AppDispatch, AppState } from "./state";
 
-/** @enum */
+/** Redux Action Enum */
 export enum ReduxActions {
   APP_INFO_UPDATE,
   APP_STATUS_UPDATE,
@@ -21,36 +21,68 @@ export enum ReduxActions {
   SHORTLIST_UPDATE,
   WINDOW_DATA_UPDATE,
   WORKING_UPDATE,
+
+  /** FACEIT */
+  FACEIT_ROOM_SET,
+  FACEIT_ROOM_CLEAR,
+  FACEIT_MATCH_COMPLETED,
 }
 
-/**
- * @param payload The redux payload.
- * @function
- */
-export function appInfoUpdate(payload: AppState['appInfo']) {
-  return {
-    type: ReduxActions.APP_INFO_UPDATE,
-    payload,
-  };
-}
+/** Basic action creators */
+export const appInfoUpdate = (payload: AppState["appInfo"]) => ({
+  type: ReduxActions.APP_INFO_UPDATE,
+  payload,
+});
+export const appStatusUpdate = (payload: AppState["appStatus"]) => ({
+  type: ReduxActions.APP_STATUS_UPDATE,
+  payload,
+});
+export const continentsUpdate = (payload: AppState["continents"]) => ({
+  type: ReduxActions.CONTINENTS_UPDATE,
+  payload,
+});
+export const emailsUpdate = (payload: AppState["emails"]) => ({
+  type: ReduxActions.EMAILS_UPDATE,
+  payload,
+});
+export const emailsDelete = (payload: AppState["emails"]) => ({
+  type: ReduxActions.EMAILS_DELETE,
+  payload,
+});
+export const localeUpdate = (payload: AppState["locale"]) => ({
+  type: ReduxActions.LOCALE_UPDATE,
+  payload,
+});
+export const playingUpdate = (payload: AppState["playing"]) => ({
+  type: ReduxActions.PLAYING_UPDATE,
+  payload,
+});
+export const profileUpdate = (payload: AppState["profile"]) => ({
+  type: ReduxActions.PROFILE_UPDATE,
+  payload,
+});
+export const profilesDelete = (payload: AppState["profiles"]) => ({
+  type: ReduxActions.PROFILES_DELETE,
+  payload,
+});
+export const profilesUpdate = (payload: AppState["profiles"]) => ({
+  type: ReduxActions.PROFILES_UPDATE,
+  payload,
+});
+export const shortlistUpdate = (payload: AppState["shortlist"]) => ({
+  type: ReduxActions.SHORTLIST_UPDATE,
+  payload,
+});
+export const windowDataUpdate = (payload: AppState["windowData"]) => ({
+  type: ReduxActions.WINDOW_DATA_UPDATE,
+  payload,
+});
+export const workingUpdate = (payload: AppState["working"]) => ({
+  type: ReduxActions.WORKING_UPDATE,
+  payload,
+});
 
-/**
- * @param payload The redux payload.
- * @function
- */
-export function appStatusUpdate(payload: AppState['appStatus']) {
-  return {
-    type: ReduxActions.APP_STATUS_UPDATE,
-    payload,
-  };
-}
-
-/**
- * Thunk action that advances the calendar.
- *
- * @param days The number of days to advance.
- * @function
- */
+/** Async: advance calendar */
 export function calendarAdvance(days?: number) {
   return async (dispatch: AppDispatch) => {
     dispatch(workingUpdate(true));
@@ -59,68 +91,14 @@ export function calendarAdvance(days?: number) {
   };
 }
 
-/**
- * @param payload The redux payload.
- * @function
- */
-export function continentsUpdate(payload: AppState['continents']) {
-  return {
-    type: ReduxActions.CONTINENTS_UPDATE,
-    payload,
-  };
-}
-
-/**
- * @param payload The redux payload.
- * @function
- */
-export function emailsUpdate(payload: AppState['emails']) {
-  return {
-    type: ReduxActions.EMAILS_UPDATE,
-    payload,
-  };
-}
-
-/**
- * @param payload The redux payload.
- * @function
- */
-export function emailsDelete(payload: AppState['emails']) {
-  return {
-    type: ReduxActions.EMAILS_DELETE,
-    payload,
-  };
-}
-
-/**
- * @param payload The redux payload.
- * @function
- */
-export function localeUpdate(payload: AppState['locale']) {
-  return {
-    type: ReduxActions.LOCALE_UPDATE,
-    payload,
-  };
-}
-
-/**
- * Thunk action that starts the game server
- * for the user to play their match.
- *
- * @param id          The match id to play.
- * @param spectating  Will user be spectating this match.
- * @function
- */
+/** Async: start gameplay */
 export function play(id: number, spectating?: boolean) {
   return async (dispatch: AppDispatch) => {
     dispatch(playingUpdate(true));
     await Util.sleep(1000);
     await api.play.start(spectating);
 
-    // do not advance if match is not completed
-    const match = await api.match.find({
-      where: { id },
-    });
+    const match = await api.match.find({ where: { id } });
 
     if (match.status === Constants.MatchStatus.COMPLETED) {
       dispatch(calendarAdvance(1));
@@ -130,79 +108,21 @@ export function play(id: number, spectating?: boolean) {
   };
 }
 
-/**
- * @param payload The redux payload.
- * @function
- */
-export function playingUpdate(payload: AppState['playing']) {
+/** ------------------------ */
+/** FACEIT ACTIONS */
+/** ------------------------ */
+
+export function faceitRoomSet(room: any, matchId?: number) {
   return {
-    type: ReduxActions.PLAYING_UPDATE,
-    payload,
+    type: ReduxActions.FACEIT_ROOM_SET,
+    payload: { room, matchId },
   };
 }
 
-/**
- * @param payload The redux payload.
- * @function
- */
-export function profileUpdate(payload: AppState['profile']) {
-  return {
-    type: ReduxActions.PROFILE_UPDATE,
-    payload,
-  };
+export function faceitRoomClear() {
+  return { type: ReduxActions.FACEIT_ROOM_CLEAR };
 }
 
-/**
- * @param payload The redux payload.
- * @function
- */
-export function profilesDelete(payload: AppState['profiles']) {
-  return {
-    type: ReduxActions.PROFILES_DELETE,
-    payload,
-  };
-}
-
-/**
- * @param payload The redux payload.
- * @function
- */
-export function profilesUpdate(payload: AppState['profiles']) {
-  return {
-    type: ReduxActions.PROFILES_UPDATE,
-    payload,
-  };
-}
-
-/**
- * @param payload The redux payload.
- * @function
- */
-export function shortlistUpdate(payload: AppState['shortlist']) {
-  return {
-    type: ReduxActions.SHORTLIST_UPDATE,
-    payload,
-  };
-}
-
-/**
- * @param payload The redux payload.
- * @function
- */
-export function windowDataUpdate(payload: AppState['windowData']) {
-  return {
-    type: ReduxActions.WINDOW_DATA_UPDATE,
-    payload,
-  };
-}
-
-/**
- * @param payload The redux payload.
- * @function
- */
-export function workingUpdate(payload: AppState['working']) {
-  return {
-    type: ReduxActions.WORKING_UPDATE,
-    payload,
-  };
+export function faceitMatchCompleted() {
+  return { type: ReduxActions.FACEIT_MATCH_COMPLETED };
 }

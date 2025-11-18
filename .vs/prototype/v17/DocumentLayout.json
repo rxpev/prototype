@@ -3,12 +3,12 @@
   "WorkspaceRootPath": "C:\\Users\\rxpev\\Documents\\GitHub\\prototype\\",
   "Documents": [
     {
-      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\rxpev\\Documents\\GitHub\\prototype\\src\\frontend\\routes\\main\\faceit\\faceit.tsx||{0F2454B1-A556-402D-A7D0-1FDE7F99DEE0}",
-      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\frontend\\routes\\main\\faceit\\faceit.tsx||{0F2454B1-A556-402D-A7D0-1FDE7F99DEE0}"
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\rxpev\\Documents\\GitHub\\prototype\\src\\backend\\lib\\save-result.ts||{0F2454B1-A556-402D-A7D0-1FDE7F99DEE0}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\backend\\lib\\save-result.ts||{0F2454B1-A556-402D-A7D0-1FDE7F99DEE0}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\rxpev\\Documents\\GitHub\\prototype\\src\\backend\\handlers\\faceit.ts||{0F2454B1-A556-402D-A7D0-1FDE7F99DEE0}",
-      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\backend\\handlers\\faceit.ts||{0F2454B1-A556-402D-A7D0-1FDE7F99DEE0}"
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\rxpev\\Documents\\GitHub\\prototype\\src\\frontend\\redux\\actions.ts||{0F2454B1-A556-402D-A7D0-1FDE7F99DEE0}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\frontend\\redux\\actions.ts||{0F2454B1-A556-402D-A7D0-1FDE7F99DEE0}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\rxpev\\Documents\\GitHub\\prototype\\src\\frontend\\routes\\main\\faceit\\matchroom.tsx||{0F2454B1-A556-402D-A7D0-1FDE7F99DEE0}",
@@ -19,36 +19,52 @@
       "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\frontend\\routes\\main\\faceit\\scoreboard.tsx||{0F2454B1-A556-402D-A7D0-1FDE7F99DEE0}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\rxpev\\Documents\\GitHub\\prototype\\src\\backend\\lib\\save-result.ts||{0F2454B1-A556-402D-A7D0-1FDE7F99DEE0}",
-      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\backend\\lib\\save-result.ts||{0F2454B1-A556-402D-A7D0-1FDE7F99DEE0}"
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\rxpev\\Documents\\GitHub\\prototype\\src\\frontend\\routes\\main\\faceit\\faceit.tsx||{0F2454B1-A556-402D-A7D0-1FDE7F99DEE0}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\frontend\\routes\\main\\faceit\\faceit.tsx||{0F2454B1-A556-402D-A7D0-1FDE7F99DEE0}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\rxpev\\Documents\\GitHub\\prototype\\src\\frontend\\redux\\reducers.ts||{0F2454B1-A556-402D-A7D0-1FDE7F99DEE0}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\frontend\\redux\\reducers.ts||{0F2454B1-A556-402D-A7D0-1FDE7F99DEE0}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\rxpev\\Documents\\GitHub\\prototype\\src\\frontend\\redux\\state.ts||{0F2454B1-A556-402D-A7D0-1FDE7F99DEE0}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\frontend\\redux\\state.ts||{0F2454B1-A556-402D-A7D0-1FDE7F99DEE0}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\rxpev\\Documents\\GitHub\\prototype\\src\\backend\\handlers\\faceit.ts||{0F2454B1-A556-402D-A7D0-1FDE7F99DEE0}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\backend\\handlers\\faceit.ts||{0F2454B1-A556-402D-A7D0-1FDE7F99DEE0}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\rxpev\\Documents\\GitHub\\prototype\\src\\frontend\\lib\\api.ts||{0F2454B1-A556-402D-A7D0-1FDE7F99DEE0}",
       "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\frontend\\lib\\api.ts||{0F2454B1-A556-402D-A7D0-1FDE7F99DEE0}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\rxpev\\Documents\\GitHub\\prototype\\src\\frontend\\routes\\modal\\postgame.tsx||{0F2454B1-A556-402D-A7D0-1FDE7F99DEE0}",
-      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\frontend\\routes\\modal\\postgame.tsx||{0F2454B1-A556-402D-A7D0-1FDE7F99DEE0}"
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\rxpev\\Documents\\GitHub\\prototype\\src\\backend\\lib\\matchmaker.ts||{0F2454B1-A556-402D-A7D0-1FDE7F99DEE0}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\backend\\lib\\matchmaker.ts||{0F2454B1-A556-402D-A7D0-1FDE7F99DEE0}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\rxpev\\Documents\\GitHub\\prototype\\src\\backend\\lib\\scorebot.ts||{0F2454B1-A556-402D-A7D0-1FDE7F99DEE0}",
-      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\backend\\lib\\scorebot.ts||{0F2454B1-A556-402D-A7D0-1FDE7F99DEE0}"
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\rxpev\\Documents\\GitHub\\prototype\\src\\backend\\handlers\\profile.ts||{0F2454B1-A556-402D-A7D0-1FDE7F99DEE0}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\backend\\handlers\\profile.ts||{0F2454B1-A556-402D-A7D0-1FDE7F99DEE0}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\rxpev\\Documents\\GitHub\\prototype\\src\\backend\\handlers\\match.ts||{0F2454B1-A556-402D-A7D0-1FDE7F99DEE0}",
-      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\backend\\handlers\\match.ts||{0F2454B1-A556-402D-A7D0-1FDE7F99DEE0}"
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\rxpev\\Documents\\GitHub\\prototype\\src\\backend\\handlers\\play.ts||{0F2454B1-A556-402D-A7D0-1FDE7F99DEE0}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\backend\\handlers\\play.ts||{0F2454B1-A556-402D-A7D0-1FDE7F99DEE0}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\rxpev\\Documents\\GitHub\\prototype\\src\\backend\\lib\\game.ts||{0F2454B1-A556-402D-A7D0-1FDE7F99DEE0}",
       "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\backend\\lib\\game.ts||{0F2454B1-A556-402D-A7D0-1FDE7F99DEE0}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\rxpev\\Documents\\GitHub\\prototype\\cli\\sandbox.ts||{0F2454B1-A556-402D-A7D0-1FDE7F99DEE0}",
-      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:cli\\sandbox.ts||{0F2454B1-A556-402D-A7D0-1FDE7F99DEE0}"
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\rxpev\\Documents\\GitHub\\prototype\\src\\backend\\handlers\\match.ts||{0F2454B1-A556-402D-A7D0-1FDE7F99DEE0}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\backend\\handlers\\match.ts||{0F2454B1-A556-402D-A7D0-1FDE7F99DEE0}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\rxpev\\Documents\\GitHub\\prototype\\src\\backend\\handlers\\play.ts||{0F2454B1-A556-402D-A7D0-1FDE7F99DEE0}",
-      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\backend\\handlers\\play.ts||{0F2454B1-A556-402D-A7D0-1FDE7F99DEE0}"
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\rxpev\\Documents\\GitHub\\prototype\\src\\frontend\\routes\\modal\\postgame.tsx||{0F2454B1-A556-402D-A7D0-1FDE7F99DEE0}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\frontend\\routes\\modal\\postgame.tsx||{0F2454B1-A556-402D-A7D0-1FDE7F99DEE0}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\rxpev\\Documents\\GitHub\\prototype\\src\\frontend\\routes\\main\\squad.tsx||{0F2454B1-A556-402D-A7D0-1FDE7F99DEE0}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\frontend\\routes\\main\\squad.tsx||{0F2454B1-A556-402D-A7D0-1FDE7F99DEE0}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\rxpev\\Documents\\GitHub\\prototype\\cli\\stats.ts||{0F2454B1-A556-402D-A7D0-1FDE7F99DEE0}",
@@ -65,14 +81,6 @@
     {
       "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\rxpev\\Documents\\GitHub\\prototype\\src\\backend\\lib\\rcon.ts||{0F2454B1-A556-402D-A7D0-1FDE7F99DEE0}",
       "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\backend\\lib\\rcon.ts||{0F2454B1-A556-402D-A7D0-1FDE7F99DEE0}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\rxpev\\Documents\\GitHub\\prototype\\src\\backend\\handlers\\profile.ts||{0F2454B1-A556-402D-A7D0-1FDE7F99DEE0}",
-      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\backend\\handlers\\profile.ts||{0F2454B1-A556-402D-A7D0-1FDE7F99DEE0}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\rxpev\\Documents\\GitHub\\prototype\\src\\backend\\lib\\matchmaker.ts||{0F2454B1-A556-402D-A7D0-1FDE7F99DEE0}",
-      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:src\\backend\\lib\\matchmaker.ts||{0F2454B1-A556-402D-A7D0-1FDE7F99DEE0}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\rxpev\\Documents\\GitHub\\prototype\\src\\backend\\handlers\\index.ts||{0F2454B1-A556-402D-A7D0-1FDE7F99DEE0}",
@@ -114,11 +122,89 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 10,
+          "SelectedChildIndex": 8,
           "Children": [
             {
               "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "actions.ts",
+              "DocumentMoniker": "C:\\Users\\rxpev\\Documents\\GitHub\\prototype\\src\\frontend\\redux\\actions.ts",
+              "RelativeDocumentMoniker": "src\\frontend\\redux\\actions.ts",
+              "ToolTip": "C:\\Users\\rxpev\\Documents\\GitHub\\prototype\\src\\frontend\\redux\\actions.ts",
+              "RelativeToolTip": "src\\frontend\\redux\\actions.ts",
+              "ViewState": "AgIAAHAAAAAAAAAAAAAAAIAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003213|",
+              "WhenOpened": "2025-11-18T21:03:18.97Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 5,
+              "Title": "reducers.ts",
+              "DocumentMoniker": "C:\\Users\\rxpev\\Documents\\GitHub\\prototype\\src\\frontend\\redux\\reducers.ts",
+              "RelativeDocumentMoniker": "src\\frontend\\redux\\reducers.ts",
+              "ToolTip": "C:\\Users\\rxpev\\Documents\\GitHub\\prototype\\src\\frontend\\redux\\reducers.ts",
+              "RelativeToolTip": "src\\frontend\\redux\\reducers.ts",
+              "ViewState": "AgIAAJkAAAAAAAAAAAAtwKwAAAAgAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003213|",
+              "WhenOpened": "2025-11-18T21:03:07.618Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
               "DocumentIndex": 6,
+              "Title": "state.ts",
+              "DocumentMoniker": "C:\\Users\\rxpev\\Documents\\GitHub\\prototype\\src\\frontend\\redux\\state.ts",
+              "RelativeDocumentMoniker": "src\\frontend\\redux\\state.ts",
+              "ToolTip": "C:\\Users\\rxpev\\Documents\\GitHub\\prototype\\src\\frontend\\redux\\state.ts",
+              "RelativeToolTip": "src\\frontend\\redux\\state.ts",
+              "ViewState": "AgIAADkAAAAAAAAAAAAIwEwAAAAPAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003213|",
+              "WhenOpened": "2025-11-18T20:56:59.408Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 3,
+              "Title": "scoreboard.tsx",
+              "DocumentMoniker": "C:\\Users\\rxpev\\Documents\\GitHub\\prototype\\src\\frontend\\routes\\main\\faceit\\scoreboard.tsx",
+              "RelativeDocumentMoniker": "src\\frontend\\routes\\main\\faceit\\scoreboard.tsx",
+              "ToolTip": "C:\\Users\\rxpev\\Documents\\GitHub\\prototype\\src\\frontend\\routes\\main\\faceit\\scoreboard.tsx",
+              "RelativeToolTip": "src\\frontend\\routes\\main\\faceit\\scoreboard.tsx",
+              "ViewState": "AgIAANQAAAAAAAAAAAAQwPgAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003213|",
+              "WhenOpened": "2025-11-16T14:44:17.129Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 2,
+              "Title": "matchroom.tsx",
+              "DocumentMoniker": "C:\\Users\\rxpev\\Documents\\GitHub\\prototype\\src\\frontend\\routes\\main\\faceit\\matchroom.tsx",
+              "RelativeDocumentMoniker": "src\\frontend\\routes\\main\\faceit\\matchroom.tsx",
+              "ToolTip": "C:\\Users\\rxpev\\Documents\\GitHub\\prototype\\src\\frontend\\routes\\main\\faceit\\matchroom.tsx",
+              "RelativeToolTip": "src\\frontend\\routes\\main\\faceit\\matchroom.tsx",
+              "ViewState": "AgIAACgBAAAAAAAAAAAAADkBAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003213|",
+              "WhenOpened": "2025-11-15T20:26:51.806Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 4,
+              "Title": "faceit.tsx",
+              "DocumentMoniker": "C:\\Users\\rxpev\\Documents\\GitHub\\prototype\\src\\frontend\\routes\\main\\faceit\\faceit.tsx",
+              "RelativeDocumentMoniker": "src\\frontend\\routes\\main\\faceit\\faceit.tsx",
+              "ToolTip": "C:\\Users\\rxpev\\Documents\\GitHub\\prototype\\src\\frontend\\routes\\main\\faceit\\faceit.tsx",
+              "RelativeToolTip": "src\\frontend\\routes\\main\\faceit\\faceit.tsx",
+              "ViewState": "AgIAAFQBAAAAAAAAAAAIwHgBAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003213|",
+              "WhenOpened": "2025-11-13T12:08:02.189Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 14,
               "Title": "postgame.tsx",
               "DocumentMoniker": "C:\\Users\\rxpev\\Documents\\GitHub\\prototype\\src\\frontend\\routes\\modal\\postgame.tsx",
               "RelativeDocumentMoniker": "src\\frontend\\routes\\modal\\postgame.tsx",
@@ -131,59 +217,33 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 7,
-              "Title": "scorebot.ts",
-              "DocumentMoniker": "C:\\Users\\rxpev\\Documents\\GitHub\\prototype\\src\\backend\\lib\\scorebot.ts",
-              "RelativeDocumentMoniker": "src\\backend\\lib\\scorebot.ts",
-              "ToolTip": "C:\\Users\\rxpev\\Documents\\GitHub\\prototype\\src\\backend\\lib\\scorebot.ts",
-              "RelativeToolTip": "src\\backend\\lib\\scorebot.ts",
-              "ViewState": "AgIAABoAAAAAAAAAAAAwwAAAAAAAAAAAAAAAAA==",
+              "DocumentIndex": 15,
+              "Title": "squad.tsx",
+              "DocumentMoniker": "C:\\Users\\rxpev\\Documents\\GitHub\\prototype\\src\\frontend\\routes\\main\\squad.tsx",
+              "RelativeDocumentMoniker": "src\\frontend\\routes\\main\\squad.tsx",
+              "ToolTip": "C:\\Users\\rxpev\\Documents\\GitHub\\prototype\\src\\frontend\\routes\\main\\squad.tsx",
+              "RelativeToolTip": "src\\frontend\\routes\\main\\squad.tsx",
+              "ViewState": "AgIAAPgCAAAAAAAAAAAIwBwDAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003213|",
-              "WhenOpened": "2025-11-17T21:31:08.748Z",
+              "WhenOpened": "2025-11-18T20:27:07.561Z",
               "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 4,
+              "DocumentIndex": 0,
               "Title": "save-result.ts",
               "DocumentMoniker": "C:\\Users\\rxpev\\Documents\\GitHub\\prototype\\src\\backend\\lib\\save-result.ts",
               "RelativeDocumentMoniker": "src\\backend\\lib\\save-result.ts",
               "ToolTip": "C:\\Users\\rxpev\\Documents\\GitHub\\prototype\\src\\backend\\lib\\save-result.ts",
               "RelativeToolTip": "src\\backend\\lib\\save-result.ts",
-              "ViewState": "AgIAAI0AAAAAAAAAAAAswJ8AAAASAAAAAAAAAA==",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAABAAAAAOAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003213|",
               "WhenOpened": "2025-11-16T17:17:26.202Z",
               "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 2,
-              "Title": "matchroom.tsx",
-              "DocumentMoniker": "C:\\Users\\rxpev\\Documents\\GitHub\\prototype\\src\\frontend\\routes\\main\\faceit\\matchroom.tsx",
-              "RelativeDocumentMoniker": "src\\frontend\\routes\\main\\faceit\\matchroom.tsx",
-              "ToolTip": "C:\\Users\\rxpev\\Documents\\GitHub\\prototype\\src\\frontend\\routes\\main\\faceit\\matchroom.tsx",
-              "RelativeToolTip": "src\\frontend\\routes\\main\\faceit\\matchroom.tsx",
-              "ViewState": "AgIAAKkAAAAAAAAAAAAswL0AAAAUAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003213|",
-              "WhenOpened": "2025-11-15T20:26:51.806Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 3,
-              "Title": "scoreboard.tsx",
-              "DocumentMoniker": "C:\\Users\\rxpev\\Documents\\GitHub\\prototype\\src\\frontend\\routes\\main\\faceit\\scoreboard.tsx",
-              "RelativeDocumentMoniker": "src\\frontend\\routes\\main\\faceit\\scoreboard.tsx",
-              "ToolTip": "C:\\Users\\rxpev\\Documents\\GitHub\\prototype\\src\\frontend\\routes\\main\\faceit\\scoreboard.tsx",
-              "RelativeToolTip": "src\\frontend\\routes\\main\\faceit\\scoreboard.tsx",
-              "ViewState": "AgIAAMUAAAAAAAAAAAAcwNYAAAAjAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003213|",
-              "WhenOpened": "2025-11-16T14:44:17.129Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 8,
+              "DocumentIndex": 13,
               "Title": "match.ts",
               "DocumentMoniker": "C:\\Users\\rxpev\\Documents\\GitHub\\prototype\\src\\backend\\handlers\\match.ts",
               "RelativeDocumentMoniker": "src\\backend\\handlers\\match.ts",
@@ -196,7 +256,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 9,
+              "DocumentIndex": 12,
               "Title": "game.ts",
               "DocumentMoniker": "C:\\Users\\rxpev\\Documents\\GitHub\\prototype\\src\\backend\\lib\\game.ts",
               "RelativeDocumentMoniker": "src\\backend\\lib\\game.ts",
@@ -205,19 +265,6 @@
               "ViewState": "AgIAACYBAAAAAAAAAAAAAHAAAABGAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003213|",
               "WhenOpened": "2025-11-09T20:44:15.835Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 10,
-              "Title": "sandbox.ts",
-              "DocumentMoniker": "C:\\Users\\rxpev\\Documents\\GitHub\\prototype\\cli\\sandbox.ts",
-              "RelativeDocumentMoniker": "cli\\sandbox.ts",
-              "ToolTip": "C:\\Users\\rxpev\\Documents\\GitHub\\prototype\\cli\\sandbox.ts",
-              "RelativeToolTip": "cli\\sandbox.ts",
-              "ViewState": "AgIAAP8AAAAAAAAAAAAqwAsBAAACAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003213|",
-              "WhenOpened": "2025-11-16T23:55:07.397Z",
               "EditorCaption": ""
             },
             {
@@ -235,33 +282,20 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 1,
+              "DocumentIndex": 7,
               "Title": "faceit.ts",
               "DocumentMoniker": "C:\\Users\\rxpev\\Documents\\GitHub\\prototype\\src\\backend\\handlers\\faceit.ts",
               "RelativeDocumentMoniker": "src\\backend\\handlers\\faceit.ts",
               "ToolTip": "C:\\Users\\rxpev\\Documents\\GitHub\\prototype\\src\\backend\\handlers\\faceit.ts",
               "RelativeToolTip": "src\\backend\\handlers\\faceit.ts",
-              "ViewState": "AgIAAB4AAAAAAAAAAAAAABwAAAAXAAAAAAAAAA==",
+              "ViewState": "AgIAAOUAAAAAAAAAAAAIwAkBAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003213|",
               "WhenOpened": "2025-11-13T12:32:04.136Z",
               "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 0,
-              "Title": "faceit.tsx",
-              "DocumentMoniker": "C:\\Users\\rxpev\\Documents\\GitHub\\prototype\\src\\frontend\\routes\\main\\faceit\\faceit.tsx",
-              "RelativeDocumentMoniker": "src\\frontend\\routes\\main\\faceit\\faceit.tsx",
-              "ToolTip": "C:\\Users\\rxpev\\Documents\\GitHub\\prototype\\src\\frontend\\routes\\main\\faceit\\faceit.tsx",
-              "RelativeToolTip": "src\\frontend\\routes\\main\\faceit\\faceit.tsx",
-              "ViewState": "AgIAAPgAAAAAAAAAAAAmwA8BAAAaAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003213|",
-              "WhenOpened": "2025-11-13T12:08:02.189Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 16,
+              "DocumentIndex": 10,
               "Title": "profile.ts",
               "DocumentMoniker": "C:\\Users\\rxpev\\Documents\\GitHub\\prototype\\src\\backend\\handlers\\profile.ts",
               "RelativeDocumentMoniker": "src\\backend\\handlers\\profile.ts",
@@ -269,11 +303,12 @@
               "RelativeToolTip": "src\\backend\\handlers\\profile.ts",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAACQAAAATAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003213|",
-              "WhenOpened": "2025-11-11T21:09:01.813Z"
+              "WhenOpened": "2025-11-11T21:09:01.813Z",
+              "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 17,
+              "DocumentIndex": 9,
               "Title": "matchmaker.ts",
               "DocumentMoniker": "C:\\Users\\rxpev\\Documents\\GitHub\\prototype\\src\\backend\\lib\\matchmaker.ts",
               "RelativeDocumentMoniker": "src\\backend\\lib\\matchmaker.ts",
@@ -281,11 +316,12 @@
               "RelativeToolTip": "src\\backend\\lib\\matchmaker.ts",
               "ViewState": "AgIAALMAAAAAAAAAAAAEwMUAAAAYAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003213|",
-              "WhenOpened": "2025-11-13T21:56:34.612Z"
+              "WhenOpened": "2025-11-13T21:56:34.612Z",
+              "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 5,
+              "DocumentIndex": 8,
               "Title": "api.ts",
               "DocumentMoniker": "C:\\Users\\rxpev\\Documents\\GitHub\\prototype\\src\\frontend\\lib\\api.ts",
               "RelativeDocumentMoniker": "src\\frontend\\lib\\api.ts",
@@ -298,7 +334,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 15,
+              "DocumentIndex": 19,
               "Title": "rcon.ts",
               "DocumentMoniker": "C:\\Users\\rxpev\\Documents\\GitHub\\prototype\\src\\backend\\lib\\rcon.ts",
               "RelativeDocumentMoniker": "src\\backend\\lib\\rcon.ts",
@@ -310,7 +346,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 12,
+              "DocumentIndex": 16,
               "Title": "stats.ts",
               "DocumentMoniker": "C:\\Users\\rxpev\\Documents\\GitHub\\prototype\\cli\\stats.ts",
               "RelativeDocumentMoniker": "cli\\stats.ts",
@@ -318,12 +354,11 @@
               "RelativeToolTip": "cli\\stats.ts",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAABIAAAAQAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003213|",
-              "WhenOpened": "2025-11-08T13:07:05.744Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-11-08T13:07:05.744Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 13,
+              "DocumentIndex": 17,
               "Title": "constants.ts",
               "DocumentMoniker": "C:\\Users\\rxpev\\Documents\\GitHub\\prototype\\src\\shared\\constants.ts",
               "RelativeDocumentMoniker": "src\\shared\\constants.ts",
@@ -331,12 +366,11 @@
               "RelativeToolTip": "src\\shared\\constants.ts",
               "ViewState": "AgIAAIABAAAAAAAAAAAawJQBAAAIAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003213|",
-              "WhenOpened": "2025-11-05T14:54:54.358Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-11-05T14:54:54.358Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 18,
+              "DocumentIndex": 20,
               "Title": "index.ts",
               "DocumentMoniker": "C:\\Users\\rxpev\\Documents\\GitHub\\prototype\\src\\backend\\handlers\\index.ts",
               "RelativeDocumentMoniker": "src\\backend\\handlers\\index.ts",
@@ -348,7 +382,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 14,
+              "DocumentIndex": 18,
               "Title": "schema.prisma",
               "DocumentMoniker": "C:\\Users\\rxpev\\Documents\\GitHub\\prototype\\src\\backend\\prisma\\schema.prisma",
               "RelativeDocumentMoniker": "src\\backend\\prisma\\schema.prisma",
@@ -360,7 +394,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 20,
+              "DocumentIndex": 22,
               "Title": "bot.ts",
               "DocumentMoniker": "C:\\Users\\rxpev\\Documents\\GitHub\\prototype\\src\\shared\\bot.ts",
               "RelativeDocumentMoniker": "src\\shared\\bot.ts",
@@ -372,7 +406,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 19,
+              "DocumentIndex": 21,
               "Title": "index.ts",
               "DocumentMoniker": "C:\\Users\\rxpev\\Documents\\GitHub\\prototype\\src\\backend\\lib\\index.ts",
               "RelativeDocumentMoniker": "src\\backend\\lib\\index.ts",
@@ -384,7 +418,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 23,
+              "DocumentIndex": 25,
               "Title": "create.tsx",
               "DocumentMoniker": "C:\\Users\\rxpev\\Documents\\GitHub\\prototype\\src\\frontend\\routes\\landing\\create\\create.tsx",
               "RelativeDocumentMoniker": "src\\frontend\\routes\\landing\\create\\create.tsx",
@@ -396,7 +430,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 22,
+              "DocumentIndex": 24,
               "Title": "index.ts",
               "DocumentMoniker": "C:\\Users\\rxpev\\Documents\\GitHub\\prototype\\src\\backend\\prisma\\seeds\\index.ts",
               "RelativeDocumentMoniker": "src\\backend\\prisma\\seeds\\index.ts",
@@ -408,7 +442,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 21,
+              "DocumentIndex": 23,
               "Title": "index.ts",
               "DocumentMoniker": "C:\\Users\\rxpev\\Documents\\GitHub\\prototype\\src\\frontend\\routes\\main\\index.ts",
               "RelativeDocumentMoniker": "src\\frontend\\routes\\main\\index.ts",
@@ -420,7 +454,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 24,
+              "DocumentIndex": 26,
               "Title": "playeroverrides.ts",
               "DocumentMoniker": "C:\\Users\\rxpev\\Documents\\GitHub\\prototype\\src\\backend\\handlers\\playeroverrides.ts",
               "RelativeDocumentMoniker": "src\\backend\\handlers\\playeroverrides.ts",
@@ -432,7 +466,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 25,
+              "DocumentIndex": 27,
               "Title": "061-wages.ts",
               "DocumentMoniker": "C:\\Users\\rxpev\\Documents\\GitHub\\prototype\\src\\backend\\prisma\\seeds\\061-wages.ts",
               "RelativeDocumentMoniker": "src\\backend\\prisma\\seeds\\061-wages.ts",

@@ -1,4 +1,3 @@
-// save-result.ts
 import { DatabaseClient } from "@liga/backend/lib";
 import { Constants } from "@liga/shared";
 
@@ -20,13 +19,13 @@ export async function saveFaceitResult(
   const prisma = DatabaseClient.prisma;
 
   // ---------------------------------------------------------------------------
-  // 1) SAFE SCORE EXTRACTION
+  // 1) SAFE SCORE EXTRACTION (SIDE-AGNOSTIC)
   // ---------------------------------------------------------------------------
-  let scoreCT = 0;
-  let scoreT = 0;
+  let scoreTeam1 = 0;
+  let scoreTeam2 = 0;
 
   if (gameServer?.result && Array.isArray(gameServer.result.score)) {
-    [scoreCT, scoreT] = gameServer.result.score as [number, number];
+    [scoreTeam1, scoreTeam2] = gameServer.result.score as [number, number];
   } else {
     gameServer?.log?.warn?.(
       `FACEIT: saveFaceitResult called without gameServer.result. ` +
@@ -34,10 +33,16 @@ export async function saveFaceitResult(
     );
   }
 
+  // We treat index 0 = "Team A", index 1 = "Team B".
+  // Overtime / side swaps do not matter here because the winner
+  // is simply the higher total score.
+  const isWinTeamA = scoreTeam1 > scoreTeam2;
+
   // ---------------------------------------------------------------------------
-  // 2) EXTRACT PLAYERS FROM COMPETITORS (CONVERT TO LITE STRUCTURE)
+  // 2) PLAYER LIST (team A, team B, plus user)
   // ---------------------------------------------------------------------------
 
+  // Players as they existed on the server (we only need id + name here)
   let teamA: MatchPlayerLite[] =
     (gameServer?.competitors?.[0]?.team?.players ?? []).map((p: any) => ({
       id: p.id,
@@ -50,27 +55,26 @@ export async function saveFaceitResult(
       name: p.name,
     }));
 
+  // Represent the user as a lightweight player
   const userPlayer: MatchPlayerLite = {
     id: profile.player.id,
     name: profile.player.name,
   };
 
-  // Ensure user is in Team A
+  // Ensure user is treated as Team A member
   if (!teamA.find((p) => p.id === userPlayer.id)) {
-    teamA.push(userPlayer);
+    teamA = [...teamA, userPlayer];
   }
 
   // Build final unified player list (no duplicates)
   let players: MatchPlayerLite[] = [...teamA, ...teamB];
-
   if (!players.find((p) => p.id === userPlayer.id)) {
-    players.push(userPlayer);
+    players = [...players, userPlayer];
   }
 
   // ---------------------------------------------------------------------------
   // 3) EVENT MAPPING (Scorebot → MatchEvent rows)
   // ---------------------------------------------------------------------------
-
   const events = Array.isArray(gameServer.scorebotEvents)
     ? gameServer.scorebotEvents
     : [];
@@ -83,7 +87,7 @@ export async function saveFaceitResult(
     return {
       payload: JSON.stringify(event),
       timestamp: event.payload.timestamp,
-      half: 0, // no halves in FACEIT PUGs
+      half: 0, // FACEIT PUGs: we don't track halves
 
       attackerId: players.find((p) => p.name === attackerName)?.id ?? null,
       victimId: players.find((p) => p.name === victimName)?.id ?? null,
@@ -94,47 +98,49 @@ export async function saveFaceitResult(
   });
 
   gameServer?.log?.info?.(
-    `FACEIT: Persisting match ${dbMatchId} — events=${eventsToCreate.length}, ` +
-    `scoreCT=${scoreCT}, scoreT=${scoreT}`
+    `FACEIT: Persisting match ${dbMatchId} — events=${eventsToCreate.length
+    }, scoreTeam1=${scoreTeam1}, scoreTeam2=${scoreTeam2}`
   );
 
   // ---------------------------------------------------------------------------
-  // 4) UPDATE MATCH IN DATABASE
+  // 4) UPDATE MATCH CORE DATA (STATUS, EVENTS, PLAYERS, SCORES)
   // ---------------------------------------------------------------------------
   await prisma.match.update({
     where: { id: dbMatchId },
     data: {
       status: Constants.MatchStatus.COMPLETED,
 
-      // connect all players
+      // attach all players
       players: {
         connect: players.map((p) => ({ id: p.id })),
       },
 
-      // insert scorebot events
+      // insert every scorebot event
       events: {
         create: eventsToCreate,
       },
 
-      // mark pseudo-game as completed
+      // mark all games inside this match completed (your pseudo-match only has one)
       games: {
         updateMany: {
           where: {},
-          data: { status: Constants.MatchStatus.COMPLETED },
+          data: {
+            status: Constants.MatchStatus.COMPLETED,
+          },
         },
       },
 
-      // update scores (teamId 1 = CT, 2 = T)
+      // update competitors scores (teamId 1 = Team A, 2 = Team B)
       competitors: {
         updateMany: [
           {
             where: { teamId: 1 },
             data: {
-              score: scoreCT,
+              score: scoreTeam1,
               result:
-                scoreCT > scoreT
+                scoreTeam1 > scoreTeam2
                   ? Constants.MatchResult.WIN
-                  : scoreCT < scoreT
+                  : scoreTeam1 < scoreTeam2
                     ? Constants.MatchResult.LOSS
                     : Constants.MatchResult.DRAW,
             },
@@ -142,24 +148,17 @@ export async function saveFaceitResult(
           {
             where: { teamId: 2 },
             data: {
-              score: scoreT,
+              score: scoreTeam2,
               result:
-                scoreT > scoreCT
+                scoreTeam2 > scoreTeam1
                   ? Constants.MatchResult.WIN
-                  : scoreT < scoreCT
+                  : scoreTeam2 < scoreTeam1
                     ? Constants.MatchResult.LOSS
                     : Constants.MatchResult.DRAW,
             },
           },
         ],
       },
-
-      // FACEIT metadata
-      faceitIsWin: scoreCT > scoreT,
-      faceitTeammates: JSON.stringify(teamA),
-      faceitOpponents: JSON.stringify(teamB),
-      faceitRating: null,
-      faceitEloDelta: 0,
     },
   });
 
@@ -167,9 +166,9 @@ export async function saveFaceitResult(
   // 5) APPLY FACEIT ELO CHANGES (USER + BOTS)
   // ---------------------------------------------------------------------------
 
-  // Load original match room payload to get eloGain / eloLoss
+  // Load original FACEIT match payload to access eloGain / eloLoss used in matchroom
   const dbMatch = await prisma.match.findFirst({
-    where: { id: dbMatchId }
+    where: { id: dbMatchId },
   });
 
   let eloGain = 0;
@@ -183,25 +182,25 @@ export async function saveFaceitResult(
     console.error("Failed to parse FACEIT match payload:", err);
   }
 
-  const isWin = scoreCT > scoreT;   // Team A = CT in your system
-  const deltaTeamA = isWin ? eloGain : -eloLoss;
-  const deltaTeamB = isWin ? -eloLoss : eloGain; // enemies get opposite result
+  // Your team = Team A
+  const deltaTeamA = isWinTeamA ? eloGain : -eloLoss;
+  const deltaTeamB = isWinTeamA ? -eloLoss : eloGain; // opposite for enemies
 
   // ---- Update USER first ----
   const newUserElo = profile.faceitElo + deltaTeamA;
   await prisma.profile.update({
     where: { id: profile.id },
-    data: { faceitElo: newUserElo }
+    data: { faceitElo: newUserElo },
   });
 
   // ---- Update TEAM A bots ----
   await Promise.all(
     teamA
-      .filter(p => p.id !== profile.player.id)
+      .filter((p) => p.id !== profile.player.id)
       .map(async (bot) => {
         await prisma.player.update({
           where: { id: bot.id },
-          data: { elo: { increment: deltaTeamA } }
+          data: { elo: { increment: deltaTeamA } },
         });
       })
   );
@@ -211,17 +210,21 @@ export async function saveFaceitResult(
     teamB.map(async (bot) => {
       await prisma.player.update({
         where: { id: bot.id },
-        data: { elo: { increment: deltaTeamB } }
+        data: { elo: { increment: deltaTeamB } },
       });
     })
   );
 
-  // Optionally store it in match
+  // Also store some FACEIT metadata on the match
   await prisma.match.update({
     where: { id: dbMatchId },
     data: {
-      faceitEloDelta: deltaTeamA
-    }
+      faceitIsWin: isWinTeamA,
+      faceitTeammates: JSON.stringify(teamA),
+      faceitOpponents: JSON.stringify(teamB),
+      faceitRating: null,
+      faceitEloDelta: deltaTeamA,
+    },
   });
 
   return true;

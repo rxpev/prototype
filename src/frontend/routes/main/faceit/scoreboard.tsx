@@ -1,70 +1,86 @@
 import React, { useEffect, useState } from "react";
 import { Constants } from "@liga/shared";
 
-// ---- Types --------------------------------------------------------
+// ------------------------------
+// TYPES
+// ------------------------------
 
-type PlayerRow = {
+export interface ScoreboardProps {
+  matchId: number;
+}
+
+export interface PlayerRow {
   id: number;
   name: string;
-};
+}
 
-type ScorebotEvent = {
+export interface ScorebotEvent {
   id: number;
   type: string;
-  payload: any;
+  payload: unknown;
   attackerId: number | null;
   victimId: number | null;
   assistId: number | null;
   headshot: boolean;
-};
-
-interface ScoreboardProps {
-  matchId: number | string;
 }
 
-// ---- Component -----------------------------------------------------
+export interface MatchRecord {
+  id: number;
+  status: number;
+  faceitTeammates?: string | null;
+  faceitOpponents?: string | null;
+}
+
+// ------------------------------
+// COMPONENT
+// ------------------------------
 
 export default function Scoreboard({ matchId }: ScoreboardProps) {
   const [loading, setLoading] = useState(true);
-  const [match, setMatch] = useState<any>(null);
+  const [match, setMatch] = useState<MatchRecord | null>(null);
   const [players, setPlayers] = useState<PlayerRow[]>([]);
   const [events, setEvents] = useState<ScorebotEvent[]>([]);
 
+  // ------------------------------
+  // LOAD MATCH DATA
+  // ------------------------------
+
   useEffect(() => {
-    if (matchId == null) return;
+    if (!matchId) return;
     load();
   }, [matchId]);
 
   async function load() {
     try {
-      const numericId =
-        typeof matchId === "string" ? Number(matchId) : matchId;
+      const data = await api.faceit.getMatchData(matchId);
 
-      if (!numericId || Number.isNaN(numericId)) {
-        setMatch(null);
-        setPlayers([]);
-        setEvents([]);
-        setLoading(false);
-        return;
-      }
-
-      const data = await api.faceit.getMatchData(numericId);
-
-      setMatch(data.match);
-      setPlayers(data.players);
-      setEvents(data.events);
+      setMatch(data.match as MatchRecord);
+      setPlayers(data.players as PlayerRow[]);
+      setEvents(data.events as ScorebotEvent[]);
       setLoading(false);
     } catch (err) {
-      console.error(err);
+      console.error("Scoreboard load error:", err);
       setLoading(false);
     }
   }
+
+  // ------------------------------
+  // LOADING OR NOT COMPLETE
+  // ------------------------------
 
   if (loading) {
     return <div className="text-gray-400">Loading…</div>;
   }
 
-  if (!match || match.status !== Constants.MatchStatus.COMPLETED) {
+  if (!match) {
+    return (
+      <div className="text-red-500 text-xl text-center mt-6">
+        Match not found.
+      </div>
+    );
+  }
+
+  if (match.status !== Constants.MatchStatus.COMPLETED) {
     return (
       <div className="text-gray-400 text-xl font-semibold mt-8 text-center">
         Match is still in progress…
@@ -72,43 +88,42 @@ export default function Scoreboard({ matchId }: ScoreboardProps) {
     );
   }
 
-  // ================================================================
-  // FACEIT TEAM SPLIT
-  // ================================================================
+  // ------------------------------
+  // BUILD FACEIT TEAM SPLIT
+  // ------------------------------
 
   let teamAIds = new Set<number>();
   let teamBIds = new Set<number>();
 
   try {
-    const teammates = match?.faceitTeammates
-      ? JSON.parse(match.faceitTeammates)
-      : [];
-    const opponents = match?.faceitOpponents
-      ? JSON.parse(match.faceitOpponents)
-      : [];
+    if (match.faceitTeammates) {
+      const teammates = JSON.parse(match.faceitTeammates) as PlayerRow[];
+      teamAIds = new Set(teammates.map((p) => p.id));
+    }
 
-    teamAIds = new Set(teammates.map((p: PlayerRow) => p.id));
-    teamBIds = new Set(opponents.map((p: PlayerRow) => p.id));
-  } catch (e) {
-    console.warn("Failed to parse FACEIT team JSON:", e);
+    if (match.faceitOpponents) {
+      const opponents = JSON.parse(match.faceitOpponents) as PlayerRow[];
+      teamBIds = new Set(opponents.map((p) => p.id));
+    }
+  } catch (err) {
+    console.warn("Failed to parse FACEIT JSON:", err);
   }
 
-  // ================================================================
-  // BUILD STATS PER PLAYER
-  // ================================================================
+  // ------------------------------
+  // BUILD PLAYER STATS
+  // ------------------------------
 
-  const stats = players.map((p: PlayerRow) => {
-    const kills = events.filter((e: ScorebotEvent) => e.attackerId === p.id).length;
-    const deaths = events.filter((e: ScorebotEvent) => e.victimId === p.id).length;
-    const assists = events.filter((e: ScorebotEvent) => e.assistId === p.id).length;
+  const stats = players.map((p) => {
+    const kills = events.filter((e) => e.attackerId === p.id).length;
+    const deaths = events.filter((e) => e.victimId === p.id).length;
+    const assists = events.filter((e) => e.assistId === p.id).length;
 
     const headshots = events.filter(
-      (e: ScorebotEvent) => e.attackerId === p.id && e.headshot
+      (e) => e.attackerId === p.id && e.headshot
     ).length;
 
-    const hs = kills > 0 ? Math.round((headshots / kills) * 100) : 0;
-
-    const kdRatio = deaths > 0 ? kills / deaths : kills; // for sorting
+    const hsPercent = kills > 0 ? Math.round((headshots / kills) * 100) : 0;
+    const kdRatio = deaths > 0 ? kills / deaths : kills;
 
     return {
       id: p.id,
@@ -116,49 +131,42 @@ export default function Scoreboard({ matchId }: ScoreboardProps) {
       kills,
       deaths,
       assists,
-      hs,
+      hs: hsPercent,
       kdRatio,
     };
   });
 
-  // ================================================================
-  // TEAM SPLIT + SORTING
-  // ================================================================
+  // ------------------------------
+  // SPLIT TEAMS
+  // ------------------------------
 
   const teamA =
-    teamAIds.size > 0
-      ? stats.filter((s) => teamAIds.has(s.id))
-      : [];
-
+    teamAIds.size > 0 ? stats.filter((s) => teamAIds.has(s.id)) : [];
   const teamB =
-    teamBIds.size > 0
-      ? stats.filter((s) => teamBIds.has(s.id))
-      : [];
+    teamBIds.size > 0 ? stats.filter((s) => teamBIds.has(s.id)) : [];
 
-  // Fallback (no JSON)
+  // Fallback if JSON didn't exist
   const finalA =
-    teamA.length || teamB.length
-      ? teamA
-      : stats.slice(0, Math.ceil(stats.length / 2));
-
+    teamA.length > 0 ? teamA : stats.slice(0, Math.ceil(stats.length / 2));
   const finalB =
-    teamA.length || teamB.length
-      ? teamB
-      : stats.slice(Math.ceil(stats.length / 2));
+    teamB.length > 0 ? teamB : stats.slice(Math.ceil(stats.length / 2));
 
-  // ---- SORTING ----
-  const sortPlayers = (arr: typeof stats) =>
+  // ------------------------------
+  // SORTING
+  // ------------------------------
+
+  const sortPlayers = (arr: typeof finalA) =>
     [...arr].sort((a, b) => {
-      if (b.kills !== a.kills) return b.kills - a.kills; // primary
-      return b.kdRatio - a.kdRatio; // secondary
+      if (b.kills !== a.kills) return b.kills - a.kills;
+      return b.kdRatio - a.kdRatio;
     });
 
   const sortedA = sortPlayers(finalA);
   const sortedB = sortPlayers(finalB);
 
-  // ================================================================
+  // ------------------------------
   // RENDER
-  // ================================================================
+  // ------------------------------
 
   return (
     <div className="p-6 flex flex-col gap-8">
@@ -167,18 +175,14 @@ export default function Scoreboard({ matchId }: ScoreboardProps) {
       <div className="grid grid-cols-2 gap-8">
         <TeamTable
           name={
-            sortedA.length > 0
-              ? `Team_${sortedA[0].name}`
-              : "Team A"
+            sortedA.length > 0 ? `Team_${sortedA[0].name}` : "Team A"
           }
           stats={sortedA}
         />
 
         <TeamTable
           name={
-            sortedB.length > 0
-              ? `Team_${sortedB[0].name}`
-              : "Team B"
+            sortedB.length > 0 ? `Team_${sortedB[0].name}` : "Team B"
           }
           stats={sortedB}
         />
@@ -187,7 +191,9 @@ export default function Scoreboard({ matchId }: ScoreboardProps) {
   );
 }
 
-// ---- Team Table ----------------------------------------------------
+// ------------------------------
+// TEAM TABLE COMPONENT
+// ------------------------------
 
 interface TeamTableProps {
   name: string;
@@ -208,11 +214,9 @@ function TeamTable({ name, stats }: TeamTableProps) {
       <h3 className="text-xl font-semibold mb-4 text-center">{name}</h3>
 
       <table className="w-full">
-        <thead className="!bg-[#ff7300]/90 text-black">
+        <thead className="bg-[#ff7300]/90 text-black!">
           <tr className="text-sm uppercase">
             <th className="px-2 py-1 text-left">Name</th>
-
-            {/* STAT COLUMNS GROUP RIGHT, BUT TEXT CENTERED */}
             <th className="px-2 py-1 text-center w-12">K</th>
             <th className="px-2 py-1 text-center w-12">D</th>
             <th className="px-2 py-1 text-center w-12">A</th>
@@ -225,17 +229,16 @@ function TeamTable({ name, stats }: TeamTableProps) {
           {stats.map((p) => (
             <tr key={p.id} className="border-t border-gray-800">
               <td className="py-2 text-left">{p.name}</td>
-
               <td className="py-2 text-center">{p.kills}</td>
               <td className="py-2 text-center">{p.deaths}</td>
               <td className="py-2 text-center">{p.assists}</td>
               <td className="py-2 text-center">{p.hs}%</td>
 
-              {/* REAL K/D RATIO */}
               <td className="py-2 text-center">
-                {p.deaths === 0 ? p.kills.toFixed(2) : (p.kills / p.deaths).toFixed(2)}
+                {p.deaths === 0
+                  ? p.kills.toFixed(2)
+                  : (p.kills / p.deaths).toFixed(2)}
               </td>
-
             </tr>
           ))}
         </tbody>
@@ -243,4 +246,3 @@ function TeamTable({ name, stats }: TeamTableProps) {
     </div>
   );
 }
-

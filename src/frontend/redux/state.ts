@@ -3,58 +3,69 @@
  *
  * @module
  */
-import type AppInfo from 'package.json';
-import Locale from '@liga/locale';
-import { Constants, Eagers } from '@liga/shared';
+import type AppInfo from "package.json";
+import Locale from "@liga/locale";
+import { Constants, Eagers } from "@liga/shared";
 
-/** @interface */
-export interface AppAction<T> {
-  type: number;
-  payload?: T;
-}
+/** Lightweight user struct for Landing window */
 export interface PlayerCareerUser {
   name: string;
   countryId: number;
   avatar?: string;
 }
 
-/** @interface */
+/** Fully flexible Redux action */
+export interface AppAction {
+  type: number;
+  payload?: any;
+}
+
+export type ThunkAction = (dispatch: AppDispatch) => void | Promise<void>;
+export type AppDispatch = (action: AppAction | ThunkAction) => void;
+
+/** Root State */
 export interface AppState {
   appInfo: typeof AppInfo;
   appStatus: string;
   continents: Array<
-    Awaited<ReturnType<typeof api.continents.all<typeof Eagers.continent>>>[number]
+    Awaited<
+      ReturnType<typeof api.continents.all<typeof Eagers.continent>>
+    >[number]
   >;
-  emails: Awaited<ReturnType<typeof api.emails.all<typeof Eagers.email>>>;
+  emails: Awaited<
+    ReturnType<typeof api.emails.all<typeof Eagers.email>>
+  >;
   locale: Awaited<ReturnType<typeof api.app.locale>>;
   playing: boolean;
-  profile: Awaited<ReturnType<typeof api.profiles.current<typeof Eagers.profile>>>;
-  profiles: Array<AppState['profile']>;
-  shortlist: Awaited<ReturnType<typeof api.shortlist.all<typeof Eagers.shortlist>>>;
+  profile: Awaited<
+    ReturnType<typeof api.profiles.current<typeof Eagers.profile>>
+  >;
+  profiles: Array<AppState["profile"]>;
+  shortlist: Awaited<
+    ReturnType<typeof api.shortlist.all<typeof Eagers.shortlist>>
+  >;
+
+  /** FACEIT persistent match state */
+  faceitMatchRoom: any | null;
+  faceitMatchId: number | null;
+  faceitMatchCompleted: boolean;
+
   windowData: Partial<{
     [Constants.WindowIdentifier.Landing]: {
       user?: PlayerCareerUser;
       role?: { selectedRole: string };
       today: Date;
     };
-    [Constants.WindowIdentifier.Modal]: Pick<
-      Parameters<typeof api.profiles.create>[0]['team'],
-      'name' | 'blazon'
-    >;
+    [Constants.WindowIdentifier.Modal]: {
+      name?: string;
+      blazon?: string;
+    };
   }>;
+
   working: boolean;
 }
 
-/** @type {AppActions} */
-export type AppActions = AppAction<AppState[keyof AppState]>;
-
-/** @type {AppDispatch} */
-export type AppDispatch = (action: AppActions | ThunkAction) => void;
-
-/** @type {ThunkAction} */
-export type ThunkAction = (dispatch: AppDispatch) => void | Promise<void>;
-
-/** @constant */
+/** Default state */
 export const InitialState: AppState = {
   appInfo: null,
   appStatus: null,
@@ -65,6 +76,9 @@ export const InitialState: AppState = {
   profile: null,
   profiles: [],
   shortlist: [],
+  faceitMatchRoom: null,
+  faceitMatchId: null,
+  faceitMatchCompleted: false,
   windowData: {
     landing: {
       today: new Date(
@@ -72,8 +86,6 @@ export const InitialState: AppState = {
         Constants.Application.SEASON_START_MONTH,
         Constants.Application.SEASON_START_DAY
       ),
-      user: undefined,
-      role: undefined,
     },
     modal: {},
   },
