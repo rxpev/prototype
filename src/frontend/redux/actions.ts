@@ -26,6 +26,8 @@ export enum ReduxActions {
   FACEIT_ROOM_SET,
   FACEIT_ROOM_CLEAR,
   FACEIT_MATCH_COMPLETED,
+  FACEIT_VETO_SET,
+  FACEIT_VETO_CLEAR,
 }
 
 /** Basic action creators */
@@ -126,3 +128,22 @@ export function faceitRoomClear() {
 export function faceitMatchCompleted() {
   return { type: ReduxActions.FACEIT_MATCH_COMPLETED };
 }
+
+export interface FaceitVetoAction {
+  map: string;
+  by: "TEAM_A" | "TEAM_B" | "SYSTEM";
+  kind: "BAN" | "DECIDER";
+}
+
+export const faceitVetoSet = (
+  history: Array<{ map: string; by: "TEAM_A" | "TEAM_B" | "SYSTEM"; kind: "BAN" | "DECIDER" }>,
+  completed: boolean,
+  deciderMap: string | null
+) => ({
+  type: ReduxActions.FACEIT_VETO_SET,
+  payload: { history, completed, deciderMap },
+});
+
+export const faceitVetoClear = () => ({
+  type: ReduxActions.FACEIT_VETO_CLEAR,
+});

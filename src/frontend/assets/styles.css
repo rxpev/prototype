@@ -304,3 +304,8 @@ meter::-webkit-meter-bar {
 @utility text-muted {
   @apply text-base-content/40 dark:text-base-content/20;
 }
+
+.faceit-scoreboard thead tr {
+  background-color: inherit !important;
+}
+

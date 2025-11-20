@@ -6,6 +6,8 @@ import { FaceitMatchmaker } from "@liga/backend/lib/matchmaker";
 import { Server as Game } from "@liga/backend/lib/game";
 import { Constants } from "@liga/shared";
 import { saveFaceitResult } from "@liga/backend/lib/save-result";
+import { Eagers } from "@liga/shared";
+import { sample } from "lodash";
 
 // ------------------------------
 // Types sent to frontend
@@ -22,13 +24,14 @@ type MatchPlayer = {
 };
 
 export type MatchRoom = {
-  matchId: string; // temporary string until stored
+  matchId: string;
   teamA: MatchPlayer[];
   teamB: MatchPlayer[];
   expectedWinA: number;
   expectedWinB: number;
   eloGain: number;
   eloLoss: number;
+  selectedMap?: string;
 };
 
 // ------------------------------------------------------
@@ -184,39 +187,109 @@ export default function registerFaceitHandlers() {
   // ------------------------------------------------------
   // START FACEIT MATCH
   // ------------------------------------------------------
+
   ipcMain.handle("faceit:startMatch", async (_, room: MatchRoom) => {
     try {
       await DatabaseClient.connect();
       const prisma = DatabaseClient.prisma;
 
+      // Load profile
       const profile = await prisma.profile.findFirst({
         include: { player: { include: { country: true } } },
       });
+
       if (!profile) throw new Error("No active profile found");
 
-      // 1) Create real DB match row
+      // ------------------------------------------------------
+      // 1) VETO MAP
+      // ------------------------------------------------------
+
+      const settings = profile.settings
+        ? JSON.parse(profile.settings)
+        : Constants.Settings;
+
+      const mapPool = await prisma.mapPool.findMany({
+        where: {
+          gameVersion: { slug: settings.general.game },
+        },
+        include: Eagers.mapPool.include,
+      });
+
+      const selectedMapFromUi = room.selectedMap;
+
+      const selectedMap =
+        selectedMapFromUi ||
+        (mapPool.length > 0 ? mapPool[0].gameMap.name : "de_inferno");
+
+      settings.matchRules.mapOverride = selectedMap;
+      profile.settings = JSON.stringify(settings);
+
+      // ------------------------------------------------------
+      // 2) CREATE REAL MATCH IN DATABASE
+      // ------------------------------------------------------
+
       const dbMatch = await prisma.match.create({
         data: {
           matchType: "FACEIT_PUG",
           payload: JSON.stringify(room),
-          status: Constants.MatchStatus.READY,
           profileId: profile.id,
+          status: Constants.MatchStatus.READY,
+
+          // Two competitors
+          competitors: {
+            create: [
+              { teamId: 1, seed: 0, score: 0, result: null },
+              { teamId: 2, seed: 1, score: 0, result: null },
+            ],
+          },
+
+          // Single game with teams, like a BO1 FACEIT
+          games: {
+            create: [
+              {
+                num: 1,
+                map: selectedMap,
+                status: Constants.MatchStatus.READY,
+                teams: {
+                  create: [
+                    { teamId: 1, seed: 0, score: 0, result: null },
+                    { teamId: 2, seed: 1, score: 0, result: null },
+                  ],
+                },
+              },
+            ],
+          },
         },
       });
 
       const realMatchId = dbMatch.id;
 
-      // 2) Build pseudo-match with REAL ID
+      // ------------------------------------------------------
+      // 3) BUILD PSEUDO MATCH FOR GAME SERVER
+      // ------------------------------------------------------
+
       const match = buildFaceitPseudoMatch(profile, room, realMatchId);
 
-      // 3) Start the game and wait until GAME_OVER
-      const game = new Game(profile, match, null, false);
-      await game.start();            // <- waits for scorebot GAME_OVER
+      // Inject map so the server runs correctly
+      match.games[0].map = selectedMap;
 
-      // 4) Now result + events are available → persist them
+      // ------------------------------------------------------
+      // 4) START GAME AND WAIT FOR GAME_OVER
+      // ------------------------------------------------------
+
+      const game = new Game(profile, match, null, false);
+      await game.start();
+
+      // ------------------------------------------------------
+      // 5) SAVE RESULTS (events, score, elo, etc.)
+      // ------------------------------------------------------
+
       await saveFaceitResult(game, realMatchId, profile);
 
-      // 5) Reply to renderer (no more "reply was never sent")
+      // ------------------------------------------------------
+      // 6) FINISH
+      // ------------------------------------------------------
+
       return { ok: true, matchId: realMatchId };
     } catch (err) {
       log.error(err);
@@ -238,12 +311,16 @@ export default function registerFaceitHandlers() {
       include: {
         players: true,
         events: true,
+        competitors: true,
+        games: {
+          include: { teams: true },
+        },
       },
     });
 
     log.info(
       `FACEIT:getMatchData id=${numericId} -> match?=${!!match}, status=${match?.status}, ` +
-      `players=${match?.players?.length ?? 0}, events=${match?.events?.length ?? 0}`,
+      `players=${match?.players?.length ?? 0}, events=${match?.events?.length ?? 0}`
     );
 
     if (!match) return { match: null, players: [], events: [] };

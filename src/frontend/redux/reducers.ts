@@ -147,6 +147,26 @@ function faceitMatchCompleted(
       return state;
   }
 }
+function faceitVeto(state = InitialState.faceitVeto, action: AppAction) {
+  switch (action.type) {
+    case ReduxActions.FACEIT_VETO_SET:
+      return {
+        history: action.payload.history,
+        completed: action.payload.completed,
+        deciderMap: action.payload.deciderMap,
+      };
+
+    case ReduxActions.FACEIT_VETO_CLEAR:
+      return {
+        history: [],
+        completed: false,
+        deciderMap: null,
+      };
+
+    default:
+      return state;
+  }
+}
 
 /** ---------------------------- */
 /** ROOT REDUCER */
@@ -169,6 +189,7 @@ export default function reducer(state: AppState, action: AppAction) {
     /** FACEIT */
     faceitMatchRoom: faceitMatchRoom(state.faceitMatchRoom, action),
     faceitMatchId: faceitMatchId(state.faceitMatchId, action),
+    faceitVeto: faceitVeto(state.faceitVeto, action),
     faceitMatchCompleted: faceitMatchCompleted(
       state.faceitMatchCompleted,
       action

@@ -122,8 +122,18 @@ export default {
       }>,
     queue: () =>
       ipcRenderer.invoke('faceit:queuePug') as Promise<any>,
-    startMatch: (room: any) =>
-      ipcRenderer.invoke('faceit:startMatch', room),
+    startMatch: (
+      room: {
+        fakeRoomId: string;
+        teamA: any[];
+        teamB: any[];
+        expectedWinA: number;
+        expectedWinB: number;
+        eloGain: number;
+        eloLoss: number;
+        selectedMap?: string;
+      }
+    ) => ipcRenderer.invoke("faceit:startMatch", room),
     getMatchData: (id: number | string) =>
       ipcRenderer.invoke("faceit:getMatchData", id),
   },

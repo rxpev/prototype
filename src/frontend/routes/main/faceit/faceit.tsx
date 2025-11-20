@@ -172,7 +172,10 @@ export default function Faceit(): JSX.Element {
   if (loading) return <div>Loading FACEIT…</div>;
 
   const [low, high] = LEVEL_RANGES[level] ?? [0, 100];
-  const pct = ((elo - low) / (high - low)) * 100;
+  const pct =
+    level === 10
+      ? 100
+      : ((elo - low) / (high - low)) * 100;
 
   const currentMatch = showMatchRoom && activeMatch ? activeMatch : null;
 
@@ -232,6 +235,8 @@ export function FaceitHeader({
   low,
   high,
 }: FaceitHeaderProps): JSX.Element {
+  const displayPct = level === 10 ? 100 : pct;
+
   return (
     <div className="w-full bg-[#0f0f0f] border-b border-[#ff7300]/60 py-4 shadow-lg flex items-center justify-between">
       <img src={faceitLogo} className="h-10 ml-4 select-none" />
@@ -245,16 +250,18 @@ export function FaceitHeader({
           <div className="w-full h-2 bg-neutral-700 rounded-full overflow-hidden">
             <div
               className="h-full bg-[#ff7300]"
-              style={{ width: `${Math.min(100, Math.max(0, pct))}%` }}
+              style={{ width: `${Math.min(100, Math.max(0, displayPct))}%` }}
             />
           </div>
 
           <div className="flex justify-between text-xs opacity-80 mt-1">
             <span>{low}</span>
+
             <span className="text-center w-full">
-              {`-${elo - low}/+${high - elo}`}
+              {level === 10 ? "MAX LEVEL" : `-${elo - low}/+${high - elo}`}
             </span>
-            <span>{high}</span>
+
+            <span>{level === 10 ? "∞" : high}</span>
           </div>
         </div>
       </div>

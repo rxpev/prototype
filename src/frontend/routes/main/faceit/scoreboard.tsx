@@ -29,6 +29,11 @@ export interface MatchRecord {
   status: number;
   faceitTeammates?: string | null;
   faceitOpponents?: string | null;
+  competitors?: {
+    id: number;
+    teamId: number;
+    score: number;
+  }[];
 }
 
 // ------------------------------
@@ -89,6 +94,18 @@ export default function Scoreboard({ matchId }: ScoreboardProps) {
   }
 
   // ------------------------------
+  // EXTRACT TEAM SCORES
+  // ------------------------------
+
+  const scoreA =
+    match.competitors?.find((c) => c.teamId === 1)?.score ?? 0;
+  const scoreB =
+    match.competitors?.find((c) => c.teamId === 2)?.score ?? 0;
+
+  const teamAWon = scoreA > scoreB;
+  const teamBWon = scoreB > scoreA;
+
+  // ------------------------------
   // BUILD FACEIT TEAM SPLIT
   // ------------------------------
 
@@ -145,7 +162,6 @@ export default function Scoreboard({ matchId }: ScoreboardProps) {
   const teamB =
     teamBIds.size > 0 ? stats.filter((s) => teamBIds.has(s.id)) : [];
 
-  // Fallback if JSON didn't exist
   const finalA =
     teamA.length > 0 ? teamA : stats.slice(0, Math.ceil(stats.length / 2));
   const finalB =
@@ -163,6 +179,15 @@ export default function Scoreboard({ matchId }: ScoreboardProps) {
 
   const sortedA = sortPlayers(finalA);
   const sortedB = sortPlayers(finalB);
+  const teamAName =
+    teamAIds.size > 0
+      ? `Team_${JSON.parse(match.faceitTeammates ?? "[]")[0]?.name ?? "A"}`
+      : "Team A";
+
+  const teamBName =
+    teamBIds.size > 0
+      ? `Team_${JSON.parse(match.faceitOpponents ?? "[]")[0]?.name ?? "B"}`
+      : "Team B";
 
   // ------------------------------
   // RENDER
@@ -170,22 +195,31 @@ export default function Scoreboard({ matchId }: ScoreboardProps) {
 
   return (
     <div className="p-6 flex flex-col gap-8">
-      <h2 className="text-3xl font-bold text-center">Scoreboard</h2>
+      <h2 className="text-3xl font-bold text-center mb-2">Scoreboard</h2>
+
+      {/* BIG FINAL SCORE */}
+      <div className="flex justify-center items-center text-center mb-6">
+        <span
+          className={`text-5xl font-extrabold mx-4 ${teamAWon ? "text-green-400" : "text-gray-300"
+            }`}
+        >
+          {scoreA}
+        </span>
+
+        <span className="text-4xl font-bold text-gray-400">–</span>
+
+        <span
+          className={`text-5xl font-extrabold mx-4 ${teamBWon ? "text-green-400" : "text-gray-300"
+            }`}
+        >
+          {scoreB}
+        </span>
+      </div>
 
       <div className="grid grid-cols-2 gap-8">
-        <TeamTable
-          name={
-            sortedA.length > 0 ? `Team_${sortedA[0].name}` : "Team A"
-          }
-          stats={sortedA}
-        />
+        <TeamTable name={teamAName} stats={sortedA} />
 
-        <TeamTable
-          name={
-            sortedB.length > 0 ? `Team_${sortedB[0].name}` : "Team B"
-          }
-          stats={sortedB}
-        />
+        <TeamTable name={teamBName} stats={sortedB} />
       </div>
     </div>
   );
@@ -210,7 +244,7 @@ interface TeamTableProps {
 
 function TeamTable({ name, stats }: TeamTableProps) {
   return (
-    <div className="bg-[#111] rounded-lg p-4 shadow-md border border-[#ff7300]/40">
+    <div className="faceit-scoreboard">
       <h3 className="text-xl font-semibold mb-4 text-center">{name}</h3>
 
       <table className="w-full">

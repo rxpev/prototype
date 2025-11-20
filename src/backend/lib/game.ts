@@ -479,22 +479,12 @@ export class Server {
    */
   private get map() {
     if (this.isFaceit) {
-      // Random competitive map for FACEIT PUGs
-      const pool = [
-        'de_mirage',
-        'de_inferno',
-        'de_overpass',
-        'de_nuke',
-        'de_ancient',
-        'de_anubis',
-        'de_vertigo',
-      ];
-      const idx = random(0, pool.length - 1);
-      return pool[idx];
+      return this.matchGame.map || "de_inferno";
     }
 
     return this.settings.matchRules.mapOverride || this.matchGame.map;
   }
+
 
   /**
    * Determines whether overtime is allowed.

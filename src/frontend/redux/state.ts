@@ -50,6 +50,17 @@ export interface AppState {
   faceitMatchId: number | null;
   faceitMatchCompleted: boolean;
 
+  /** FACEIT veto persistent state */
+  faceitVeto: {
+    history: Array<{
+      map: string;
+      by: "TEAM_A" | "TEAM_B" | "SYSTEM";
+      kind: "BAN" | "DECIDER";
+    }>;
+    completed: boolean;
+    deciderMap: string | null;
+  };
+
   windowData: Partial<{
     [Constants.WindowIdentifier.Landing]: {
       user?: PlayerCareerUser;
@@ -79,6 +90,11 @@ export const InitialState: AppState = {
   faceitMatchRoom: null,
   faceitMatchId: null,
   faceitMatchCompleted: false,
+  faceitVeto: {
+    history: [],
+    completed: false,
+    deciderMap: null,
+  },
   windowData: {
     landing: {
       today: new Date(

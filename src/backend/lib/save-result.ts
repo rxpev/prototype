@@ -1,16 +1,13 @@
 import { DatabaseClient } from "@liga/backend/lib";
-import { Constants } from "@liga/shared";
+import { Constants, Util } from "@liga/shared";
 
 type MatchPlayerLite = {
   id: number;
   name: string;
+  steamId?: string | null;
+  serverId?: string | null;
 };
 
-/**
- * Saves all FACEIT post-match data after GAME_OVER.
- *
- * Called ONLY after game.start() resolves (so scorebot populated result & events).
- */
 export async function saveFaceitResult(
   gameServer: any,
   dbMatchId: number,
@@ -18,109 +15,181 @@ export async function saveFaceitResult(
 ) {
   const prisma = DatabaseClient.prisma;
 
-  // ---------------------------------------------------------------------------
-  // 1) SAFE SCORE EXTRACTION (SIDE-AGNOSTIC)
-  // ---------------------------------------------------------------------------
-  let scoreTeam1 = 0;
-  let scoreTeam2 = 0;
+  const settings = Util.loadSettings(profile.settings);
+  const maxRounds = settings.matchRules.maxRounds;
+  const maxRoundsOT = settings.matchRules.maxRoundsOvertime;
 
-  if (gameServer?.result && Array.isArray(gameServer.result.score)) {
-    [scoreTeam1, scoreTeam2] = gameServer.result.score as [number, number];
-  } else {
-    gameServer?.log?.warn?.(
-      `FACEIT: saveFaceitResult called without gameServer.result. ` +
-      `Events=${gameServer?.scorebotEvents?.length ?? 0}`
-    );
+  // ---------------------------------------------------------------------------
+  // SCORE CALCULATION WITH HALFTIME + OVERTIME SWITCH LOGIC
+  // ---------------------------------------------------------------------------
+
+  const roundEvents = (gameServer.scorebotEvents || []).filter(
+    (e: any) => e.type === "roundover"
+  );
+
+  let scoreA = 0;
+  let scoreB = 0;
+  let half = 0;
+  let rounds = 1;
+
+  const teamCount = gameServer.competitors?.length ?? 2;
+
+  const computeWinner = (eventWinner: number, half: number, rounds: number) => {
+    let invert = half % 2 === 1;
+
+    if (rounds > maxRounds) {
+      const roundsOT = rounds - maxRounds;
+      const otIndex = Math.ceil(roundsOT / maxRoundsOT);
+
+      if (otIndex % 2 === 1) invert = half % 2 === 0;
+
+      const otRound = ((roundsOT - 1) % maxRoundsOT) + 1;
+      if (otRound === maxRoundsOT / 2 || otRound === maxRoundsOT) half++;
+    } else {
+      if (rounds === maxRounds / 2 || rounds === maxRounds) half++;
+    }
+
+    return invert ? 1 - eventWinner : eventWinner;
+  };
+
+  for (const ev of roundEvents) {
+    const w = ev.payload?.winner;
+    if (typeof w !== "number") continue;
+
+    const mapped = computeWinner(w, half, rounds);
+
+    if (mapped === 0) scoreA++;
+    else if (mapped === 1) scoreB++;
+
+    if (rounds > maxRounds) {
+      const roundsOT = rounds - maxRounds;
+      const otRound = ((roundsOT - 1) % maxRoundsOT) + 1;
+      if (otRound === maxRoundsOT / 2 || otRound === maxRoundsOT) half++;
+    } else {
+      if (rounds === maxRounds / 2 || rounds === maxRounds) half++;
+    }
+
+    rounds++;
   }
 
-  // We treat index 0 = "Team A", index 1 = "Team B".
-  // Overtime / side swaps do not matter here because the winner
-  // is simply the higher total score.
-  const isWinTeamA = scoreTeam1 > scoreTeam2;
+  const isWinA = scoreA > scoreB;
 
   // ---------------------------------------------------------------------------
-  // 2) PLAYER LIST (team A, team B, plus user)
+  // PLAYER LIST
   // ---------------------------------------------------------------------------
 
-  // Players as they existed on the server (we only need id + name here)
   let teamA: MatchPlayerLite[] =
     (gameServer?.competitors?.[0]?.team?.players ?? []).map((p: any) => ({
       id: p.id,
       name: p.name,
+      steamId: p.steamId ?? null,
+      serverId: p.serverId ?? null,
     }));
 
   let teamB: MatchPlayerLite[] =
     (gameServer?.competitors?.[1]?.team?.players ?? []).map((p: any) => ({
       id: p.id,
       name: p.name,
+      steamId: p.steamId ?? null,
+      serverId: p.serverId ?? null,
     }));
 
-  // Represent the user as a lightweight player
   const userPlayer: MatchPlayerLite = {
     id: profile.player.id,
     name: profile.player.name,
+    steamId: profile.player.steamId ?? null,
+    serverId: null,
   };
 
-  // Ensure user is treated as Team A member
-  if (!teamA.find((p) => p.id === userPlayer.id)) {
-    teamA = [...teamA, userPlayer];
-  }
+  if (!teamA.find((p) => p.id === userPlayer.id)) teamA.push(userPlayer);
 
-  // Build final unified player list (no duplicates)
-  let players: MatchPlayerLite[] = [...teamA, ...teamB];
-  if (!players.find((p) => p.id === userPlayer.id)) {
-    players = [...players, userPlayer];
-  }
+  let players = [...teamA, ...teamB];
+  if (!players.find((p) => p.id === userPlayer.id)) players.push(userPlayer);
 
   // ---------------------------------------------------------------------------
-  // 3) EVENT MAPPING (Scorebot → MatchEvent rows)
+  // PLAYER ID RESOLUTION
   // ---------------------------------------------------------------------------
+
+  const resolvePlayerId = (
+    name: string | null,
+    steamId: string | null,
+    serverId: string | null
+  ): number | null => {
+    if (steamId && steamId !== "BOT") {
+      const bySteam = players.find((p) => p.steamId === steamId);
+      if (bySteam) return bySteam.id;
+    }
+    if (serverId) {
+      const byServer = players.find((p) => p.serverId === serverId);
+      if (byServer) return byServer.id;
+    }
+    if (name) {
+      const byName = players.find((p) => p.name === name);
+      if (byName) return byName.id;
+    }
+    return null;
+  };
+
+  // ---------------------------------------------------------------------------
+  // EVENT MAPPING (no halves for FACEIT)
+  // ---------------------------------------------------------------------------
+
   const events = Array.isArray(gameServer.scorebotEvents)
     ? gameServer.scorebotEvents
     : [];
 
   const eventsToCreate = events.map((event: any) => {
-    const attackerName = event.payload.attacker?.name;
-    const victimName = event.payload.victim?.name;
-    const assistName = event.payload.assist?.name;
+    const attacker = event.payload.attacker ?? null;
+    const victim = event.payload.victim ?? null;
+    const assist = event.payload.assist ?? null;
+
+    const attackerId = resolvePlayerId(
+      attacker?.name ?? null,
+      attacker?.steamId ?? null,
+      attacker?.serverId ?? null
+    );
+
+    const victimId = resolvePlayerId(
+      victim?.name ?? null,
+      victim?.steamId ?? null,
+      victim?.serverId ?? null
+    );
+
+    const assistId = resolvePlayerId(
+      assist?.name ?? null,
+      assist?.steamId ?? null,
+      assist?.serverId ?? null
+    );
 
     return {
       payload: JSON.stringify(event),
       timestamp: event.payload.timestamp,
-      half: 0, // FACEIT PUGs: we don't track halves
-
-      attackerId: players.find((p) => p.name === attackerName)?.id ?? null,
-      victimId: players.find((p) => p.name === victimName)?.id ?? null,
-      assistId: players.find((p) => p.name === assistName)?.id ?? null,
-
+      half: 0,
+      attackerId,
+      victimId,
+      assistId,
       headshot: event.payload.headshot ?? false,
+      weapon: event.payload.weapon ?? null,
     };
   });
 
-  gameServer?.log?.info?.(
-    `FACEIT: Persisting match ${dbMatchId} — events=${eventsToCreate.length
-    }, scoreTeam1=${scoreTeam1}, scoreTeam2=${scoreTeam2}`
-  );
+  // ---------------------------------------------------------------------------
+  // WRITE MATCH DATA TO DB
+  // ---------------------------------------------------------------------------
 
-  // ---------------------------------------------------------------------------
-  // 4) UPDATE MATCH CORE DATA (STATUS, EVENTS, PLAYERS, SCORES)
-  // ---------------------------------------------------------------------------
   await prisma.match.update({
     where: { id: dbMatchId },
     data: {
       status: Constants.MatchStatus.COMPLETED,
 
-      // attach all players
       players: {
         connect: players.map((p) => ({ id: p.id })),
       },
 
-      // insert every scorebot event
       events: {
         create: eventsToCreate,
       },
 
-      // mark all games inside this match completed (your pseudo-match only has one)
       games: {
         updateMany: {
           where: {},
@@ -130,17 +199,16 @@ export async function saveFaceitResult(
         },
       },
 
-      // update competitors scores (teamId 1 = Team A, 2 = Team B)
       competitors: {
         updateMany: [
           {
             where: { teamId: 1 },
             data: {
-              score: scoreTeam1,
+              score: scoreA,
               result:
-                scoreTeam1 > scoreTeam2
+                scoreA > scoreB
                   ? Constants.MatchResult.WIN
-                  : scoreTeam1 < scoreTeam2
+                  : scoreA < scoreB
                     ? Constants.MatchResult.LOSS
                     : Constants.MatchResult.DRAW,
             },
@@ -148,11 +216,11 @@ export async function saveFaceitResult(
           {
             where: { teamId: 2 },
             data: {
-              score: scoreTeam2,
+              score: scoreB,
               result:
-                scoreTeam2 > scoreTeam1
+                scoreB > scoreA
                   ? Constants.MatchResult.WIN
-                  : scoreTeam2 < scoreTeam1
+                  : scoreB < scoreA
                     ? Constants.MatchResult.LOSS
                     : Constants.MatchResult.DRAW,
             },
@@ -163,13 +231,10 @@ export async function saveFaceitResult(
   });
 
   // ---------------------------------------------------------------------------
-  // 5) APPLY FACEIT ELO CHANGES (USER + BOTS)
+  // APPLY FACEIT ELO
   // ---------------------------------------------------------------------------
 
-  // Load original FACEIT match payload to access eloGain / eloLoss used in matchroom
-  const dbMatch = await prisma.match.findFirst({
-    where: { id: dbMatchId },
-  });
+  const dbMatch = await prisma.match.findFirst({ where: { id: dbMatchId } });
 
   let eloGain = 0;
   let eloLoss = 0;
@@ -178,52 +243,44 @@ export async function saveFaceitResult(
     const payload = JSON.parse(dbMatch?.payload ?? "{}");
     eloGain = payload.eloGain ?? 0;
     eloLoss = payload.eloLoss ?? 0;
-  } catch (err) {
-    console.error("Failed to parse FACEIT match payload:", err);
-  }
+  } catch { }
 
-  // Your team = Team A
-  const deltaTeamA = isWinTeamA ? eloGain : -eloLoss;
-  const deltaTeamB = isWinTeamA ? -eloLoss : eloGain; // opposite for enemies
+  const deltaA = isWinA ? eloGain : -eloLoss;
+  const deltaB = -deltaA;
 
-  // ---- Update USER first ----
-  const newUserElo = profile.faceitElo + deltaTeamA;
   await prisma.profile.update({
     where: { id: profile.id },
-    data: { faceitElo: newUserElo },
+    data: { faceitElo: profile.faceitElo + deltaA },
   });
 
-  // ---- Update TEAM A bots ----
   await Promise.all(
     teamA
       .filter((p) => p.id !== profile.player.id)
-      .map(async (bot) => {
-        await prisma.player.update({
+      .map((bot) =>
+        prisma.player.update({
           where: { id: bot.id },
-          data: { elo: { increment: deltaTeamA } },
-        });
-      })
+          data: { elo: { increment: deltaA } },
+        })
+      )
   );
 
-  // ---- Update TEAM B bots ----
   await Promise.all(
-    teamB.map(async (bot) => {
-      await prisma.player.update({
+    teamB.map((bot) =>
+      prisma.player.update({
         where: { id: bot.id },
-        data: { elo: { increment: deltaTeamB } },
-      });
-    })
+        data: { elo: { increment: deltaB } },
+      })
+    )
   );
 
-  // Also store some FACEIT metadata on the match
   await prisma.match.update({
     where: { id: dbMatchId },
     data: {
-      faceitIsWin: isWinTeamA,
+      faceitIsWin: isWinA,
       faceitTeammates: JSON.stringify(teamA),
       faceitOpponents: JSON.stringify(teamB),
       faceitRating: null,
-      faceitEloDelta: deltaTeamA,
+      faceitEloDelta: deltaA,
     },
   });
 

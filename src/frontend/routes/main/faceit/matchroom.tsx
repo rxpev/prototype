@@ -1,15 +1,15 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { LEVEL_IMAGES } from "./faceit";
+import { Image } from "@liga/frontend/components";
 import { FaceitHeader } from "./faceit";
 import Scoreboard from "./scoreboard";
 import { levelFromElo } from "@liga/backend/lib/levels";
-import { Constants } from "@liga/shared";
-
+import { Constants, Util } from "@liga/shared";
 import { AppStateContext } from "@liga/frontend/redux";
 import {
   faceitMatchCompleted,
-  faceitRoomClear,
   faceitRoomSet,
+  faceitVetoSet,
 } from "@liga/frontend/redux/actions";
 
 // ------------------------------
@@ -23,6 +23,10 @@ export type MatchPlayer = {
   level: number;
   role?: string | null;
   countryId: number;
+
+  // From backend handler MatchPlayer
+  userControlled?: boolean;
+  personality?: string | null;
 };
 
 export interface MatchRoomData {
@@ -37,8 +41,8 @@ export interface MatchRoomData {
 
 export interface MatchRoomProps {
   room: MatchRoomData;
-  onClose: () => void;          // hide UI but keep room persisted
-  onEloUpdate?: () => void;     // refresh header
+  onClose: () => void;
+  onEloUpdate?: () => void;
   countryMap: Map<number, string>;
   elo: number;
   level: number;
@@ -46,6 +50,20 @@ export interface MatchRoomProps {
   low: number;
   high: number;
 }
+
+// Map pool entry from api.mapPool.find
+type MapPoolEntry = {
+  gameMap: {
+    name: string;
+  };
+};
+
+// Local veto action type (matches Redux)
+type VetoAction = {
+  map: string;
+  by: "TEAM_A" | "TEAM_B" | "SYSTEM";
+  kind: "BAN" | "DECIDER";
+};
 
 // ------------------------------
 // HELPERS
@@ -62,6 +80,10 @@ function getTeamAvgElo(team: MatchPlayer[]): number {
 
 function getTeamAvgLevel(team: MatchPlayer[]): number {
   return levelFromElo(getTeamAvgElo(team));
+}
+
+function shuffle<T>(arr: T[]): T[] {
+  return [...arr].sort(() => Math.random() - 0.5);
 }
 
 // ------------------------------
@@ -90,29 +112,269 @@ export default function MatchRoom({
     eloLoss,
   } = room;
 
+  // Randomize team lineups once per mount
+  const [shuffledTeamA] = useState<MatchPlayer[]>(() => shuffle(teamA));
+  const [shuffledTeamB] = useState<MatchPlayer[]>(() => shuffle(teamB));
+
+  // Captains = first player in each team (after shuffle)
+  const captainA = shuffledTeamA[0];
+  const captainB = shuffledTeamB[0];
+
+  // Determine if the user is the captain of Team A
+  // The backend marks the user with `userControlled: true`.
+  const userIsCaptainA = !!captainA?.userControlled;
+
+  // UI tabs
   const [tab, setTab] = useState<"room" | "scoreboard">("room");
 
-  // Read global persisted matchId from Redux
+  // Score values for after match completion
+  const [finalScoreA, setFinalScoreA] = useState<number | null>(null);
+  const [finalScoreB, setFinalScoreB] = useState<number | null>(null);
+
+  // Persisted backend match ID
   const storedMatchId = state.faceitMatchId;
 
   // ------------------------------
-  // Start Match (CONNECT TO SERVER)
+  // SETTINGS / MAP POOL FOR VETO
+  // ------------------------------
+
+  const settingsAll = useMemo(() => {
+    if (!state.profile) return Constants.Settings;
+    return Util.loadSettings(state.profile.settings);
+  }, [state.profile]);
+
+  const [mapPool, setMapPool] = useState<MapPoolEntry[]>([]);
+  const [cpuThinking, setCpuThinking] = useState(false);
+
+  // Load map pool once profile/settings exist
+  useEffect(() => {
+    if (!state.profile) return;
+
+    api.mapPool
+      .find({
+        where: {
+          gameVersion: {
+            slug: settingsAll.general.game,
+          },
+          position: {
+            not: null,
+          },
+        },
+      })
+      .then((result: MapPoolEntry[]) => setMapPool(result))
+      .catch((err: unknown) => {
+        console.error("FACEIT veto: failed to load map pool", err);
+        setMapPool([]);
+      });
+  }, [state.profile, settingsAll]);
+
+  // ------------------------------
+  // VETO STATE FROM REDUX
+  // ------------------------------
+
+  const vetoState = state.faceitVeto || {
+    history: [],
+    completed: false,
+    deciderMap: null as string | null,
+  };
+
+  const vetoHistory = vetoState.history as VetoAction[];
+  const vetoComplete = vetoState.completed;
+  const deciderMap = vetoState.deciderMap;
+
+  // Remaining maps = not banned/decided yet
+  const remainingMaps = useMemo(
+    () =>
+      mapPool.filter(
+        (m) => !vetoHistory.some((v) => v.map === m.gameMap.name)
+      ),
+    [mapPool, vetoHistory]
+  );
+
+  const bansCount = useMemo(
+    () => vetoHistory.filter((v) => v.kind === "BAN").length,
+    [vetoHistory]
+  );
+
+  // Whose turn is it to BAN?
+  const currentTurn: "TEAM_A" | "TEAM_B" | null = useMemo(() => {
+    if (vetoComplete) return null;
+    if (remainingMaps.length <= 1) return null; // decider will be auto
+    return bansCount % 2 === 0 ? "TEAM_A" : "TEAM_B";
+  }, [vetoComplete, remainingMaps.length, bansCount]);
+
+  // Helper to write veto state into Redux
+  const updateVeto = (
+    history: VetoAction[],
+    deciderOverride: string | null = deciderMap
+  ) => {
+    dispatch(
+      faceitVetoSet(
+        history,
+        !!deciderOverride,
+        deciderOverride
+      )
+    );
+  };
+
+  // ------------------------------
+  // USER BAN HANDLER (TEAM A, only if user is captain)
+  // ------------------------------
+
+  const handleUserBan = (mapName: string) => {
+    if (vetoComplete) return;
+    if (currentTurn !== "TEAM_A") return;
+    if (!userIsCaptainA) return;
+    if (!remainingMaps.some((m) => m.gameMap.name === mapName)) return;
+
+    const newHistory: VetoAction[] = [
+      ...vetoHistory,
+      { map: mapName, by: "TEAM_A", kind: "BAN" },
+    ];
+
+    updateVeto(newHistory);
+  };
+
+  // ------------------------------
+  // CPU BAN HANDLER (TEAM B)
+  // ------------------------------
+
+  useEffect(() => {
+    if (vetoComplete) return;
+    if (!mapPool.length) return;
+    if (remainingMaps.length <= 1) return;
+    if (currentTurn !== "TEAM_B") return;
+
+    setCpuThinking(true);
+
+    const timeout = setTimeout(() => {
+      const choices = remainingMaps.map((m) => m.gameMap.name);
+      if (choices.length === 0) {
+        setCpuThinking(false);
+        return;
+      }
+
+      const mapName =
+        choices[Math.floor(Math.random() * choices.length)];
+
+      const newHistory: VetoAction[] = [
+        ...vetoHistory,
+        { map: mapName, by: "TEAM_B", kind: "BAN" },
+      ];
+
+      updateVeto(newHistory);
+      setCpuThinking(false);
+    }, 800 + Math.random() * 2200);
+
+    return () => clearTimeout(timeout);
+  }, [
+    currentTurn,
+    vetoComplete,
+    mapPool,
+    remainingMaps,
+    vetoHistory,
+    updateVeto,
+  ]);
+
+  // ------------------------------
+  // CPU BAN HANDLER (TEAM A when user is NOT captain)
+  // ------------------------------
+
+  useEffect(() => {
+    if (vetoComplete) return;
+    if (!mapPool.length) return;
+    if (remainingMaps.length <= 1) return;
+
+    // Only trigger CPU ban for Team A if it's their turn
+    // AND the user is not the captain of Team A.
+    if (currentTurn !== "TEAM_A") return;
+    if (userIsCaptainA) return;
+
+    setCpuThinking(true);
+
+    const timeout = setTimeout(() => {
+      const choices = remainingMaps.map((m) => m.gameMap.name);
+      if (choices.length === 0) {
+        setCpuThinking(false);
+        return;
+      }
+
+      const mapName =
+        choices[Math.floor(Math.random() * choices.length)];
+
+      const newHistory: VetoAction[] = [
+        ...vetoHistory,
+        { map: mapName, by: "TEAM_A", kind: "BAN" },
+      ];
+
+      updateVeto(newHistory);
+      setCpuThinking(false);
+    }, 800 + Math.random() * 2200);
+
+    return () => clearTimeout(timeout);
+  }, [
+    currentTurn,
+    vetoComplete,
+    mapPool,
+    remainingMaps,
+    vetoHistory,
+    updateVeto,
+    userIsCaptainA,
+  ]);
+
+  // ------------------------------
+  // AUTO-DECIDER WHEN 1 MAP LEFT
+  // ------------------------------
+
+  useEffect(() => {
+    if (!mapPool.length) return;
+    if (vetoComplete) return;
+    if (remainingMaps.length !== 1) return;
+
+    const mapName = remainingMaps[0].gameMap.name;
+
+    if (vetoHistory.some((v) => v.kind === "DECIDER")) return;
+
+    const newHistory: VetoAction[] = [
+      ...vetoHistory,
+      { map: mapName, by: "SYSTEM", kind: "DECIDER" },
+    ];
+
+    updateVeto(newHistory, mapName);
+  }, [
+    mapPool.length,
+    remainingMaps,
+    vetoComplete,
+    vetoHistory,
+    updateVeto,
+  ]);
+
+  // ------------------------------
+  // START MATCH
   // ------------------------------
 
   const handleStartMatch = async () => {
-    const result: { matchId: number } = await api.faceit.startMatch(room);
+    if (!deciderMap) return;
 
-    // store match ID in redux
+    const result: { matchId: number } = await api.faceit.startMatch({
+      ...room,
+      selectedMap: deciderMap,
+      // Make sure to send *shuffled* teams to backend so they match what we display.
+      teamA: shuffledTeamA,
+      teamB: shuffledTeamB,
+    } as any);
+
     dispatch(faceitRoomSet(room, result.matchId));
 
-    if (onEloUpdate) await onEloUpdate();
+    if (onEloUpdate) {
+      await onEloUpdate();
+    }
 
-    // go to scoreboard tab as soon as the game is done
     setTab("scoreboard");
   };
 
   // ------------------------------
-  // Detect match completion → flag in Redux
+  // POLL BACKEND FOR STATUS
   // ------------------------------
 
   useEffect(() => {
@@ -120,11 +382,22 @@ export default function MatchRoom({
 
     const checkStatus = async () => {
       const data = await api.faceit.getMatchData(storedMatchId);
+      const competitors: { teamId: number; score: number }[] =
+        (data.match?.competitors as { teamId: number; score: number }[]) ??
+        [];
 
       if (
         data.match &&
-        data.match.status === Constants.MatchStatus.COMPLETED   
+        data.match.status === Constants.MatchStatus.COMPLETED
       ) {
+        const scoreA =
+          competitors.find((c) => c.teamId === 1)?.score ?? 0;
+        const scoreB =
+          competitors.find((c) => c.teamId === 2)?.score ?? 0;
+
+        setFinalScoreA(scoreA);
+        setFinalScoreB(scoreB);
+
         dispatch(faceitMatchCompleted());
       }
     };
@@ -133,7 +406,7 @@ export default function MatchRoom({
     return () => clearInterval(interval);
   }, [storedMatchId, dispatch]);
 
-  // When match is completed, ensure we’re on the scoreboard tab
+  // Auto-switch to scoreboard when match is done
   useEffect(() => {
     if (state.faceitMatchCompleted) {
       setTab("scoreboard");
@@ -141,12 +414,24 @@ export default function MatchRoom({
   }, [state.faceitMatchCompleted]);
 
   // ------------------------------
+  // RENDER HELPERS
+  // ------------------------------
+
+  const scoreHigherA =
+    finalScoreA !== null &&
+    finalScoreB !== null &&
+    finalScoreA > finalScoreB;
+  const scoreHigherB =
+    finalScoreA !== null &&
+    finalScoreB !== null &&
+    finalScoreB > finalScoreA;
+
+  // ------------------------------
   // RENDER
   // ------------------------------
 
   return (
     <div className="w-full min-h-screen bg-[#0b0b0b] text-white flex flex-col">
-      {/* FACEIT HEADER */}
       <FaceitHeader elo={elo} level={level} pct={pct} low={low} high={high} />
 
       <div className="p-6 overflow-y-auto">
@@ -202,29 +487,36 @@ export default function MatchRoom({
               <div className="bg-[#0f0f0f] p-4 rounded border border-[#222]">
                 <div className="flex justify-between items-center mb-3">
                   <h2 className="text-xl font-bold">
-                    {getTeamName(teamA, "Team A")}
+                    {getTeamName(shuffledTeamA, "Team A")}
                   </h2>
 
                   <div className="flex items-center gap-2">
                     <span className="opacity-80 text-sm">
-                      Average ELO {getTeamAvgElo(teamA)}
+                      Average ELO {getTeamAvgElo(shuffledTeamA)}
                     </span>
                     <img
-                      src={LEVEL_IMAGES[getTeamAvgLevel(teamA)]}
+                      src={LEVEL_IMAGES[getTeamAvgLevel(shuffledTeamA)]}
                       className="w-7 h-7"
                     />
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  {teamA.map((p) => (
+                  {shuffledTeamA.map((p) => (
                     <div
                       key={p.id}
                       className="bg-neutral-800 p-3 rounded flex justify-between items-center"
                     >
                       <div className="flex items-center gap-2">
                         <span className={`fp ${countryMap.get(p.countryId)}`} />
-                        <span>{p.name}</span>
+                        <span>
+                          {p.name}
+                          {p.id === captainA?.id && (
+                            <span className="ml-1 text-xs text-blue-400">
+                              [C]
+                            </span>
+                          )}
+                        </span>
                       </div>
 
                       <div className="flex items-center gap-2">
@@ -239,52 +531,218 @@ export default function MatchRoom({
                 </div>
               </div>
 
-              {/* MATCH INFO */}
-              <div className="bg-[#0f0f0f] p-4 rounded border border-[#222] flex flex-col items-center justify-center">
-                <h2 className="text-xl font-bold mb-2">MATCH INFO</h2>
+              {/* MIDDLE COLUMN: VETO + MATCH INFO */}
+              <div className="bg-[#0f0f0f] p-4 rounded border border-[#222] flex flex-col items-center">
+                {/* MAP VETO BEFORE GAME START */}
+                {!state.faceitMatchCompleted && (
+                  <>
+                    <h2 className="text-xl font-bold mb-3">MAP VETO</h2>
 
-                <div className="mt-2 text-center">
-                  <div>Win Chance: {(expectedWinA * 100).toFixed(1)}%</div>
-                  <div className="mt-1 opacity-70">
-                    Elo Gain: +{eloGain} / Loss: -{eloLoss}
-                  </div>
-                </div>
+                    <div className="text-sm text-center mb-3 opacity-80">
+                      {mapPool.length === 0 && (
+                        <span>Loading map pool…</span>
+                      )}
 
-                <button
-                  className="mt-6 px-8 py-3 bg-orange-600 rounded hover:bg-orange-700 text-lg"
-                  onClick={handleStartMatch}
-                >
-                  CONNECT TO SERVER
-                </button>
+                      {mapPool.length > 0 && !vetoComplete && (
+                        <>
+                          {currentTurn === "TEAM_A" && (
+                            <>
+                              {userIsCaptainA ? (
+                                <span>
+                                  Click a map to ban.
+                                </span>
+                              ) : (
+                                <span>
+                                  Waiting for your captain{" "}
+                                  <strong>{captainA?.name}</strong> to ban a map…
+                                </span>
+                              )}
+                            </>
+                          )}
+                          {currentTurn === "TEAM_B" && (
+                            <span>
+                              Waiting for enemy captain{" "}
+                              <strong>{captainB?.name}</strong> to ban a map…
+                            </span>
+                          )}
+                        </>
+                      )}
+
+                      {vetoComplete && deciderMap && (
+                        <span>
+                          Veto complete. Final map:{" "}
+                          <strong>{deciderMap}</strong>
+                        </span>
+                      )}
+                    </div>
+
+                    {/* FACEIT-STYLE MAP LIST*/}
+                    <div className="grid grid-cols-1 gap-2 w-full mb-4">
+                      {mapPool
+                        .filter((entry) => {
+                          if (!vetoComplete) return true;
+                          return entry.gameMap.name === deciderMap;
+                        })
+                        .map((entry) => {
+                          const mapName = entry.gameMap.name;
+                          const picked = vetoHistory.find(
+                            (v) => v.map === mapName
+                          );
+
+                          const isRemaining = !picked;
+                          const isClickable =
+                            isRemaining &&
+                            !vetoComplete &&
+                            currentTurn === "TEAM_A" &&
+                            userIsCaptainA &&
+                            !cpuThinking;
+
+                          const label = Util.convertMapPool(
+                            mapName,
+                            settingsAll.general.game
+                          );
+
+                          const imgSrc = Util.convertMapPool(
+                            mapName,
+                            settingsAll.general.game,
+                            true
+                          );
+
+                          return (
+                            <button
+                              key={mapName}
+                              type="button"
+                              onClick={() =>
+                                isClickable && handleUserBan(mapName)
+                              }
+                              className={[
+                                "px-3 py-2 rounded text-sm text-left border transition flex gap-3",
+                                isClickable
+                                  ? "cursor-pointer hover:border-orange-500 hover:bg-neutral-800"
+                                  : "cursor-default",
+                                picked?.kind === "BAN" &&
+                                !vetoComplete &&
+                                "border-red-600 bg-red-600/10",
+                                picked?.kind === "DECIDER" &&
+                                "border-orange-500 bg-orange-500/10",
+                                !picked &&
+                                !vetoComplete &&
+                                "border-neutral-700 bg-neutral-900/60",
+                              ]
+                                .filter(Boolean)
+                                .join(" ")}
+                            >
+                              <Image
+                                src={imgSrc}
+                                className="w-20 h-12 object-cover rounded"
+                              />
+
+                              <div className="flex flex-col">
+                                <span className="font-semibold">{label}</span>
+                                {picked && picked.by !== "SYSTEM" && (
+                                  <span className="text-xs opacity-70">
+                                    {picked.kind === "BAN"
+                                      ? "BANNED"
+                                      : "DECIDER"}
+                                  </span>
+                                )}
+                              </div>
+                            </button>
+                          );
+                        })}
+                    </div>
+
+                    {/* MATCH INFO + CONNECT BUTTON (AFTER VETO DONE) */}
+                    <div className="mt-auto pt-2 text-center">
+                      <div>Win Chance: {(expectedWinA * 100).toFixed(1)}%</div>
+                      <div className="mt-1 opacity-70">
+                        Elo Gain: +{eloGain} / Loss: -{eloLoss}
+                      </div>
+
+                      <button
+                        className={`mt-4 px-8 py-3 rounded text-lg ${vetoComplete
+                            ? "bg-orange-600 hover:bg-orange-700"
+                            : "bg-neutral-700 cursor-not-allowed opacity-60"
+                          }`}
+                        disabled={!vetoComplete}
+                        onClick={handleStartMatch}
+                      >
+                        {vetoComplete
+                          ? "CONNECT TO SERVER"
+                          : "Complete veto to start"}
+                      </button>
+                    </div>
+                  </>
+                )}
+
+                {/* AFTER GAME FINISHED – SHOW FINAL SCORE */}
+                {state.faceitMatchCompleted &&
+                  finalScoreA !== null &&
+                  finalScoreB !== null && (
+                    <>
+                      <h2 className="text-xl font-bold mb-4">FINAL SCORE</h2>
+
+                      <div className="text-5xl font-extrabold flex items-center gap-4">
+                        <span
+                          className={
+                            scoreHigherA ? "text-green-400" : "text-gray-300"
+                          }
+                        >
+                          {finalScoreA}
+                        </span>
+
+                        <span className="text-gray-400">–</span>
+
+                        <span
+                          className={
+                            scoreHigherB ? "text-green-400" : "text-gray-300"
+                          }
+                        >
+                          {finalScoreB}
+                        </span>
+                      </div>
+
+                      <div className="mt-4 text-green-400 text-lg">
+                        Match Completed
+                      </div>
+                    </>
+                  )}
               </div>
 
               {/* TEAM B */}
               <div className="bg-[#0f0f0f] p-4 rounded border border-[#222]">
                 <div className="flex justify-between items-center mb-3">
                   <h2 className="text-xl font-bold">
-                    {getTeamName(teamB, "Team B")}
+                    {getTeamName(shuffledTeamB, "Team B")}
                   </h2>
 
                   <div className="flex items-center gap-2">
                     <span className="opacity-80 text-sm">
-                      Average ELO {getTeamAvgElo(teamB)}
+                      Average ELO {getTeamAvgElo(shuffledTeamB)}
                     </span>
                     <img
-                      src={LEVEL_IMAGES[getTeamAvgLevel(teamB)]}
+                      src={LEVEL_IMAGES[getTeamAvgLevel(shuffledTeamB)]}
                       className="w-7 h-7"
                     />
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  {teamB.map((p) => (
+                  {shuffledTeamB.map((p) => (
                     <div
                       key={p.id}
                       className="bg-neutral-800 p-3 rounded flex justify-between items-center"
                     >
                       <div className="flex items-center gap-2">
                         <span className={`fp ${countryMap.get(p.countryId)}`} />
-                        <span>{p.name}</span>
+                        <span>
+                          {p.name}
+                          {p.id === captainB?.id && (
+                            <span className="ml-1 text-xs text-blue-400">
+                              [C]
+                            </span>
+                          )}
+                        </span>
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="opacity-70">{p.elo}</span>
