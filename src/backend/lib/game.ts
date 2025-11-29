@@ -9,7 +9,6 @@ import * as RCON from './rcon';
 import * as Scorebot from './scorebot';
 import * as Sqrl from 'squirrelly';
 import * as VDF from './vdf';
-import * as VPK from './vpk';
 import os from 'node:os';
 import path from 'node:path';
 import fs from 'node:fs';
@@ -94,18 +93,7 @@ export async function discoverGamePath(enumId: string, steamPath?: string) {
   }
 
   // get the game app id from its short name
-  const id = (() => {
-    switch (enumId) {
-      case Constants.Game.CS16:
-        return Constants.GameSettings.CS16_APPID;
-      case Constants.Game.CSS:
-        return Constants.GameSettings.CSSOURCE_APPID;
-      case Constants.Game.CZERO:
-        return Constants.GameSettings.CZERO_APPID;
-      default:
-        return Constants.GameSettings.CSGO_APPID;
-    }
-  })();
+  const id = Constants.GameSettings.CSGO_APPID;
 
   // the libraries manifest file contains a dictionary
   // containing installed game enums
@@ -137,39 +125,13 @@ export async function discoverGamePath(enumId: string, steamPath?: string) {
  * @function
  */
 export function getGameExecutable(game: string, rootPath: string | null) {
-  switch (game) {
-    case Constants.Game.CS16:
-      return path.join(
-        rootPath || '',
-        Constants.GameSettings.CS16_BASEDIR,
-        Constants.GameSettings.CS16_EXE,
-      );
-    case Constants.Game.CS2:
-      return path.join(
-        rootPath || '',
-        Constants.GameSettings.CS2_BASEDIR,
-        Constants.GameSettings.CS2_EXE,
-      );
-    case Constants.Game.CSS:
-      return path.join(
-        rootPath || '',
-        Constants.GameSettings.CSSOURCE_BASEDIR,
-        Constants.GameSettings.CSSOURCE_EXE,
-      );
-    case Constants.Game.CZERO:
-      return path.join(
-        rootPath || '',
-        Constants.GameSettings.CZERO_BASEDIR,
-        Constants.GameSettings.CZERO_EXE,
-      );
-    default:
-      return path.join(
-        rootPath || '',
-        Constants.GameSettings.CSGO_BASEDIR,
-        Constants.GameSettings.CSGO_EXE,
-      );
-  }
+  return path.join(
+    rootPath || '',
+    Constants.GameSettings.CSGO_BASEDIR,
+    Constants.GameSettings.CSGO_EXE
+  );
 }
+
 
 /**
  * Gets the specified game's log file.
@@ -180,63 +142,12 @@ export function getGameExecutable(game: string, rootPath: string | null) {
  */
 export async function getGameLogFile(game: string, rootPath: string) {
   // Decide base log directory based only on game + rootPath
-  const basePath = (() => {
-    switch (game) {
-      case Constants.Game.CS16:
-        return path.join(
-          rootPath,
-          Constants.GameSettings.CS16_BASEDIR,
-          Constants.GameSettings.CS16_GAMEDIR,
-          Constants.GameSettings.LOGS_DIR,
-        );
-      case Constants.Game.CS2:
-        return path.join(
-          rootPath,
-          Constants.GameSettings.CS2_BASEDIR,
-          Constants.GameSettings.CS2_GAMEDIR,
-          Constants.GameSettings.LOGS_DIR,
-        );
-      case Constants.Game.CSS:
-        return path.join(
-          rootPath,
-          Constants.GameSettings.CSSOURCE_BASEDIR,
-          Constants.GameSettings.CSSOURCE_GAMEDIR,
-          Constants.GameSettings.LOGS_DIR,
-        );
-      case Constants.Game.CZERO:
-        return path.join(
-          rootPath,
-          Constants.GameSettings.CZERO_BASEDIR,
-          Constants.GameSettings.CZERO_GAMEDIR,
-          Constants.GameSettings.LOGS_DIR,
-        );
-      default: {
-        // CSGO
-        // rootPath for CS:GO will be either:
-        // - steam client folder (…\common\Counter-Strike Global Offensive)
-        // - dedicated server root (…\csgo-ds)
-        const basename = path.basename(rootPath).toLowerCase();
+  const basename = path.basename(rootPath).toLowerCase();
 
-        if (basename === 'csgo') {
-          // already at the game folder ...\csgo
-          return path.join(rootPath, Constants.GameSettings.LOGS_DIR);
-        }
-
-        if (basename === 'csgo-ds') {
-          // dedicated server root ...\csgo-ds -> ...\csgo\logs
-          return path.join(rootPath, 'csgo', Constants.GameSettings.LOGS_DIR);
-        }
-
-        // fallback: treat rootPath like the original gamePath
-        return path.join(
-          rootPath,
-          Constants.GameSettings.CSGO_BASEDIR,
-          Constants.GameSettings.CSGO_GAMEDIR,
-          Constants.GameSettings.LOGS_DIR,
-        );
-      }
-    }
-  })();
+  let basePath = '';
+  if (basename === 'csgo') basePath = path.join(rootPath, Constants.GameSettings.LOGS_DIR);
+  else if (basename === 'csgo-ds') basePath = path.join(rootPath, 'csgo', Constants.GameSettings.LOGS_DIR);
+  else basePath = path.join(rootPath, Constants.GameSettings.CSGO_BASEDIR, Constants.GameSettings.CSGO_GAMEDIR, Constants.GameSettings.LOGS_DIR);
 
   log.info(`[getGameLogFile] game=${game}, rootPath=${rootPath}, basePath=${basePath}`);
 
@@ -290,8 +201,6 @@ export class Server {
   private botConfigFile: string;
   private gameDir: string;
   private gameClientProcess: ChildProcessWithoutNullStreams;
-  private motdTxtFile: string;
-  private motdHTMLFile: string;
   private profile: Profile;
   private rcon: RCON.Client;
   private scorebot: Scorebot.Watcher;
@@ -371,49 +280,11 @@ export class Server {
     }
 
     // set up properties dependent on game version
-    switch (this.settings.general.game) {
-      case Constants.Game.CS16:
-        this.baseDir = Constants.GameSettings.CS16_BASEDIR;
-        this.botCommandFile = Constants.GameSettings.CS16_BOT_COMMAND_FILE;
-        this.botConfigFile = Constants.GameSettings.CS16_BOT_CONFIG;
-        this.gameDir = Constants.GameSettings.CS16_GAMEDIR;
-        this.motdTxtFile = Constants.GameSettings.CS16_MOTD_TXT_FILE;
-        this.motdHTMLFile = Constants.GameSettings.CS16_MOTD_HTML_FILE;
-        this.serverConfigFile = Constants.GameSettings.CS16_SERVER_CONFIG_FILE;
-        break;
-      case Constants.Game.CS2:
-        this.baseDir = Constants.GameSettings.CS2_BASEDIR;
-        this.botCommandFile = Constants.GameSettings.CSSOURCE_BOT_COMMAND_FILE;
-        this.botConfigFile = Constants.GameSettings.CS2_BOT_CONFIG;
-        this.gameDir = Constants.GameSettings.CS2_GAMEDIR;
-        this.serverConfigFile = Constants.GameSettings.CS2_SERVER_CONFIG_FILE;
-        break;
-      case Constants.Game.CSS:
-        this.baseDir = Constants.GameSettings.CSSOURCE_BASEDIR;
-        this.botCommandFile = Constants.GameSettings.CSGO_BOT_COMMAND_FILE;
-        this.botConfigFile = Constants.GameSettings.CSSOURCE_BOT_CONFIG;
-        this.gameDir = Constants.GameSettings.CSSOURCE_GAMEDIR;
-        this.motdTxtFile = Constants.GameSettings.CSSOURCE_MOTD_TXT_FILE;
-        this.motdHTMLFile = Constants.GameSettings.CSSOURCE_MOTD_HTML_FILE;
-        this.serverConfigFile = Constants.GameSettings.CSSOURCE_SERVER_CONFIG_FILE;
-        break;
-      case Constants.Game.CZERO:
-        this.baseDir = Constants.GameSettings.CZERO_BASEDIR;
-        this.botCommandFile = Constants.GameSettings.CZERO_BOT_COMMAND_FILE;
-        this.botConfigFile = Constants.GameSettings.CZERO_BOT_CONFIG;
-        this.gameDir = Constants.GameSettings.CZERO_GAMEDIR;
-        this.motdTxtFile = Constants.GameSettings.CZERO_MOTD_TXT_FILE;
-        this.motdHTMLFile = Constants.GameSettings.CZERO_MOTD_HTML_FILE;
-        this.serverConfigFile = Constants.GameSettings.CZERO_SERVER_CONFIG_FILE;
-        break;
-      default:
-        this.baseDir = Constants.GameSettings.CSGO_BASEDIR;
-        this.botCommandFile = Constants.GameSettings.CSSOURCE_BOT_COMMAND_FILE;
-        this.botConfigFile = Constants.GameSettings.CSGO_BOT_CONFIG;
-        this.gameDir = Constants.GameSettings.CSGO_GAMEDIR;
-        this.serverConfigFile = Constants.GameSettings.CSGO_SERVER_CONFIG_FILE;
-        break;
-    }
+    this.baseDir = Constants.GameSettings.CSGO_BASEDIR;
+    this.botCommandFile = Constants.GameSettings.CSGO_BOT_COMMAND_FILE;
+    this.botConfigFile = Constants.GameSettings.CSGO_BOT_CONFIG;
+    this.gameDir = Constants.GameSettings.CSGO_GAMEDIR;
+    this.serverConfigFile = Constants.GameSettings.CSGO_SERVER_CONFIG_FILE;
 
     // build competitors data
     if (this.isFaceit && this.faceitRoom) {
@@ -586,88 +457,15 @@ export class Server {
     );
   }
 
-
-  /**
-   * Patches the `configs/bot_names.txt` file for the CSGOBetterBots plugin to
-   * pick up Elite-level bots as Pros and improve their aim and behaviors.
-   *
-   * @note csgo only.
-   * @function
-   */
-  private async generateBetterBotsConfig() {
-    // bail early if not csgo
-    if (this.settings.general.game !== Constants.Game.CSGO) {
-      return;
-    }
-
-    // bail early if the bot names txt file is not found
-    const original = path.join(
-      this.settings.general.gamePath,
-      this.baseDir,
-      this.gameDir,
-      Constants.GameSettings.CSGO_BETTER_BOTS_NAMES_FILE,
-    );
-
-    try {
-      await fs.promises.access(original, fs.constants.F_OK);
-    } catch (error) {
-      this.log.warn(error);
-      return;
-    }
-
-    // find the last occurrence of `}`
-    const content = await fs.promises.readFile(original, 'utf8');
-    const lastBracketIndex = content.lastIndexOf('}');
-
-    if (lastBracketIndex === -1) {
-      this.log.warn('Invalid bot_names.txt format: Missing closing bracket.');
-      return;
-    }
-
-    // create list of bots that are elite level and
-    // add them to the list of pro bot names
-    const names = flatten(this.competitors.map((competitor) => competitor.team.players)).map(
-      (player) => {
-        const xp = new Bot.Exp(player);
-        const difficulty = xp.getBotTemplate().name;
-
-        if (difficulty !== Constants.BotDifficulty.STAR) {
-          return;
-        }
-
-        return `"${player.name}"\t\t\t"LIGA"`;
-      },
-    );
-
-    // bail early if there are no players to insert
-    if (!names.length) {
-      return;
-    }
-
-    // insert new names before the last `}`
-    const contentNew =
-      content.slice(0, lastBracketIndex) +
-      '\t' +
-      compact(names).join('\n\t') +
-      '\n' +
-      content.slice(lastBracketIndex);
-    return fs.promises.writeFile(original, contentNew, 'utf8');
-  }
-
   /**
  * Generates the bot profile config (botprofile.db).
  *
  * @function
  */
   private async generateBotConfig() {
-    // Decide base directory for botprofile.db
-    const baseDir =
-      this.settings.general.game === Constants.Game.CSGO
-        ? path.join(this.settings.general.dedicatedServerPath, this.gameDir)
-        : path.join(this.settings.general.gamePath, this.baseDir, this.gameDir);
 
+    const baseDir = path.join(this.settings.general.dedicatedServerPath, this.gameDir);
     const original = path.join(baseDir, this.botConfigFile); // e.g. "botprofile.db"
-
     const template = await fs.promises.readFile(original, 'utf8');
     const [home, away] = this.competitors;
 
@@ -846,78 +644,6 @@ End\n
       countryId: p.countryId,
       xp: p.xp ?? 0,
     } as any;
-  }
-
-  /**
-   * Generates the MOTD text file.
-   *
-   * @note cs16, czero, and css only.
-   * @function
-   */
-  private async generateMOTDConfig() {
-    // FACEIT: no MOTD / table, bail early
-    if (this.isFaceit) {
-      return;
-    }
-
-    // figure out paths
-    const gameBasePath = path.join(this.settings.general.gamePath, this.baseDir, this.gameDir);
-
-    // get team positions
-    const [home, away] = this.competitors;
-    const [homeStats, awayStats] = [
-      this.match.competition.competitors.find(
-        (competitor) => competitor.teamId === home.teamId,
-      ),
-      this.match.competition.competitors.find(
-        (competitor) => competitor.teamId === away.teamId,
-      ),
-    ];
-
-    // generate the motd text file which simply redirects
-    // to the html one and bypasses the 1KB file limit
-    const txtSource = path.join(gameBasePath, this.motdTxtFile);
-    const txtTemplate = await fs.promises.readFile(txtSource, 'utf8');
-    const txtContent = Sqrl.render(txtTemplate, {
-      target: path.join(gameBasePath, this.motdHTMLFile),
-    });
-
-    // generate the motd html file
-    const htmlSource = path.join(gameBasePath, this.motdHTMLFile);
-    const htmlTemplate = await fs.promises.readFile(htmlSource, 'utf8');
-    const htmlContent = Sqrl.render(htmlTemplate, {
-      title: this.hostname.split('|')[0],
-      subtitle: this.hostname.split('|')[1],
-      stage:
-        (this.match.competition.tier.groupSize === undefined ||
-          this.match.competition.tier.groupSize === null) &&
-        Util.parseCupRounds(this.match.round, this.match.totalRounds),
-      home: {
-        name: home.team.name,
-        subtitle: this.match.competition.tier.groupSize
-          ? Util.toOrdinalSuffix(homeStats.position)
-          : Constants.IdiomaticTier[Constants.Prestige[home.team.tier]],
-        logo: await this.getTeamLogo(home.team.blazon),
-      },
-      away: {
-        name: away.team.name,
-        subtitle: this.match.competition.tier.groupSize
-          ? Util.toOrdinalSuffix(awayStats.position)
-          : Constants.IdiomaticTier[Constants.Prestige[away.team.tier]],
-        logo: await this.getTeamLogo(away.team.blazon),
-      },
-      standings:
-        this.match.competition.tier.groupSize &&
-        this.match.competition.competitors
-          .filter((competitor) => competitor.group === homeStats.group)
-          .sort((a, b) => a.position - b.position),
-    });
-
-    // generate both motd files
-    return Promise.all([
-      fs.promises.writeFile(txtSource, txtContent),
-      fs.promises.writeFile(htmlSource, htmlContent),
-    ]);
   }
 
   /**
@@ -1166,102 +892,6 @@ End\n
     this.log.info(`Generated ${this.botCommandFile} at: ${botCmdPath}`);
   }
 
-
-
-  /**
-   * Generates the VPK for game customizations.
-   *
-   * @function
-   */
-  private async generateVPK() {
-    // create the temp folder we'll be making the VPK from
-    const vpkSource = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'liga'));
-
-    // copy bot profile
-    const botProfilePath = path.join(
-      this.settings.general.gamePath,
-      this.baseDir,
-      this.gameDir,
-      this.botConfigFile,
-    );
-
-    try {
-      await fs.promises.copyFile(
-        botProfilePath,
-        path.join(vpkSource, path.basename(botProfilePath)),
-      );
-    } catch (error) {
-      this.log.error(error);
-    }
-
-    // copy the language file with the patched bot prefix names
-    //
-    // @todo: extract the language file from the cs2 vpk
-    const languageFileSource = path.join(
-      PluginManager.getPath(),
-      Constants.Game.CS2,
-      Constants.GameSettings.CSGO_LANGUAGE_FILE,
-    );
-    const languageFileTarget = path.join(
-      vpkSource,
-      Constants.GameSettings.CSGO_LANGUAGE_FILE,
-    );
-    await FileManager.touch(languageFileTarget);
-    await fs.promises.copyFile(languageFileSource, languageFileTarget);
-
-    // generate the vpk
-    const vpk = new VPK.Parser(vpkSource);
-    await vpk.create();
-
-    // copy the vpk over to the game dir
-    const vpkTarget = path.join(
-      path.dirname(botProfilePath),
-      Constants.GameSettings.CS2_VPK_FILE,
-    );
-
-    try {
-      await FileManager.touch(vpkTarget);
-      await fs.promises.copyFile(vpkSource + '.vpk', vpkTarget);
-    } catch (error) {
-      this.log.error(error);
-    }
-
-    // clean up
-    return Promise.all([
-      fs.promises.rm(vpkSource, { recursive: true }),
-      fs.promises.rm(vpkSource + '.vpk', { recursive: true }),
-    ]);
-  }
-
-  /**
-   * Patches the `gameinfo.gi` file so that it
-   * can load our various game customizations
-   *
-   * @function
-   */
-  private async generateVPKGameInfo() {
-    const original = path.join(
-      this.settings.general.gamePath,
-      this.baseDir,
-      this.gameDir,
-      Constants.GameSettings.CS2_GAMEINFO_FILE,
-    );
-
-    // create a backup of this file which will be restored later on
-    await fs.promises.copyFile(original, original + '.bak');
-
-    // patch the `gameinfo.gi` file and append our custom vpk
-    const template = await fs.promises.readFile(original, 'utf8');
-    const content = template.replace(
-      /(Game_LowViolence.+)/g,
-      '$1\n\t\t\tGame\tcsgo/' +
-      Constants.GameSettings.CS2_VPK_METAMOD +
-      '\n\t\t\tGame\tcsgo/' +
-      Constants.GameSettings.CS2_VPK_FILE,
-    );
-    return fs.promises.writeFile(original, content, 'utf8');
-  }
-
   /**
    * Gets the local ip address.
    *
@@ -1342,104 +972,6 @@ End\n
   }
 
   /**
-   * This is only needed because cs2 will sometimes
-   * not log to file if the logs directory doesn't
-   * already exist before launching.
-   *
-   * @todo hopefully this can be removed... oneday.
-   * @function
-   */
-  private async initLogsDir() {
-    const logsPath = path.join(
-      this.settings.general.gamePath,
-      Constants.GameSettings.CS2_BASEDIR,
-      Constants.GameSettings.CS2_GAMEDIR,
-      Constants.GameSettings.LOGS_DIR,
-    );
-
-    try {
-      await fs.promises.mkdir(logsPath, { recursive: true });
-    } catch (error) {
-      this.log.warn(error);
-    }
-  }
-
-  /**
-   * Launches the CS16 game client.
-   *
-   * @function
-   */
-  private async launchClientCS16() {
-    // launch the client
-    gameClientProcess = spawn(
-      Constants.GameSettings.CS16_EXE,
-      [
-        '-game',
-        Constants.GameSettings.CS16_GAMEDIR,
-        '-dll',
-        Constants.GameSettings.CS16_DLL_METAMOD,
-        '-beta',
-        '-bots',
-        '+localinfo',
-        'mm_gamedll',
-        Constants.GameSettings.CS16_DLL_BOTS,
-        '+ip',
-        this.getLocalIP(),
-        '+maxplayers',
-        '12',
-        '+map',
-        Util.convertMapPool(this.map, this.settings.general.game),
-        ...this.userArgs,
-      ],
-      {
-        cwd: path.join(
-          this.settings.general.gamePath,
-          Constants.GameSettings.CS16_BASEDIR,
-        ),
-      },
-    );
-
-    gameClientProcess.on('close', this.cleanup.bind(this));
-    return Promise.resolve();
-  }
-
-  /**
-   * Launches the CS2 game client.
-   *
-   * @function
-   */
-  private launchClientCS2() {
-    // launch the client
-    gameClientProcess = spawn(
-      Constants.GameSettings.CS2_EXE,
-      [
-        '+map',
-        Util.convertMapPool(this.map, this.settings.general.game),
-        '+game_mode',
-        '1',
-        '-novid',
-        '-usercon',
-        '-insecure',
-        '-novid',
-        '-maxplayers_override',
-        '12',
-        '+exec',
-        Constants.GameSettings.CS2_SERVER_CONFIG_FILE,
-        ...this.userArgs,
-      ],
-      {
-        cwd: path.join(
-          this.settings.general.gamePath,
-          Constants.GameSettings.CS2_BASEDIR,
-        ),
-      },
-    );
-
-    gameClientProcess.on('close', this.cleanup.bind(this));
-    return Promise.resolve();
-  }
-
-  /**
    * Launches the CSGO game client.
    *
    * @function
@@ -1516,7 +1048,6 @@ End\n
 
     const srcdsCommand = `"${serverExe}" ${args.join(' ')}`;
 
-    // Escape quotes so cmd.exe interprets correctly
     const cmdString = `E: && cd /d "${path.join(
       serverRoot,
       'csgo',
@@ -1541,109 +1072,13 @@ End\n
   }
 
   /**
-   * Launches the CSS game client.
-   *
-   * @function
-   */
-  private launchClientCSS() {
-    const commonFlags = [
-      '-usercon',
-      '-insecure',
-      '-novid',
-      '+ip',
-      this.getLocalIP(),
-      '+map',
-      Util.convertMapPool(this.map, this.settings.general.game),
-      '+maxplayers',
-      '12',
-      ...this.userArgs,
-    ];
-
-    if (is.osx()) {
-      gameClientProcess = spawn(
-        'open',
-        [
-          `steam://rungameid/${Constants.GameSettings.CSSOURCE_APPID}//'${commonFlags.join(
-            ' ',
-          )}'`,
-        ],
-        { shell: true },
-      );
-    } else {
-      gameClientProcess = spawn(
-        Constants.GameSettings.CSSOURCE_EXE,
-        ['-game', Constants.GameSettings.CSSOURCE_GAMEDIR, ...commonFlags],
-        {
-          cwd: path.join(
-            this.settings.general.gamePath,
-            Constants.GameSettings.CSSOURCE_BASEDIR,
-          ),
-        },
-      );
-    }
-
-    gameClientProcess.on('close', this.cleanup.bind(this));
-    return Promise.resolve();
-  }
-
-  /**
-   * Launches the CZERO game client.
-   *
-   * @function
-   */
-  private async launchClientCZERO() {
-    // launch the client
-    gameClientProcess = spawn(
-      Constants.GameSettings.CZERO_EXE,
-      [
-        '-game',
-        Constants.GameSettings.CZERO_GAMEDIR,
-        '-dll',
-        Constants.GameSettings.CZERO_DLL_METAMOD,
-        '-beta',
-        '+localinfo',
-        'mm_gamedll',
-        Constants.GameSettings.CZERO_DLL_BOTS,
-        '+ip',
-        this.getLocalIP(),
-        '+maxplayers',
-        '12',
-        '+map',
-        Util.convertMapPool(this.map, this.settings.general.game),
-        ...this.userArgs,
-      ],
-      {
-        cwd: path.join(
-          this.settings.general.gamePath,
-          Constants.GameSettings.CZERO_BASEDIR,
-        ),
-      },
-    );
-
-    gameClientProcess.on('close', this.cleanup.bind(this));
-
-    return Promise.resolve();
-  }
-
-  /**
    * Sets up and configures the files that are
    * necessary for the game server to run.
    *
    * @function
    */
   private async prepare() {
-    // determine the correct game directory name
-    const localGameDir = (() => {
-      switch (this.settings.general.game) {
-        case Constants.Game.CS2:
-          return 'cs2';
-        case Constants.Game.CSS:
-          return 'cssource';
-        default:
-          return this.gameDir;
-      }
-    })();
-
+    const localGameDir = this.gameDir;
     // source: LIGA's plugin files (e.g. %APPDATA%\LIGA Esports Manager\plugins\csgo)
     const from = path.join(PluginManager.getPath(), localGameDir);
 
@@ -1681,23 +1116,7 @@ End\n
     await this.generateBotConfig();
 
     // configure game files
-    switch (this.settings.general.game) {
-      case Constants.Game.CS16:
-      case Constants.Game.CSS:
-      case Constants.Game.CZERO:
-        await this.generateMOTDConfig();
-        break;
-      case Constants.Game.CS2:
-        await this.generateVPK();
-        await this.generateVPKGameInfo();
-        await this.initLogsDir();
-        break;
-      default:
-        // CSGO and others
-        await this.generateScoreboardConfig();
-        await this.generateBetterBotsConfig();
-        break;
-    }
+    await this.generateScoreboardConfig();
 
     this.log.info('Server preparation complete.');
   }
@@ -1713,25 +1132,8 @@ End\n
     // 1) Prepare files / plugins / cfgs
     await this.prepare();
 
-    // 2) Launch server / initial client depending on game
-    switch (this.settings.general.game) {
-      case Constants.Game.CS16:
-        await this.launchClientCS16();
-        break;
-      case Constants.Game.CS2:
-        await this.launchClientCS2();
-        break;
-      case Constants.Game.CSS:
-        await this.launchClientCSS();
-        break;
-      case Constants.Game.CZERO:
-        await this.launchClientCZERO();
-        break;
-      default:
-        // CSGO: dedicated server first, client later
-        this.launchServerCSGO();
-        break;
-    }
+    // 2) Launch server 
+    this.launchServerCSGO();
 
     // 3) Connect to RCON (server)
     this.rcon = new RCON.Client(
@@ -1739,9 +1141,7 @@ End\n
       Constants.GameSettings.RCON_PORT,
       Constants.GameSettings.RCON_PASSWORD,
       {
-        tcp:
-          this.settings.general.game !== Constants.Game.CS16 &&
-          this.settings.general.game !== Constants.Game.CZERO,
+        tcp: true,
         retryMax: Constants.GameSettings.RCON_MAX_ATTEMPTS,
       },
     );
@@ -1752,10 +1152,8 @@ End\n
       this.log.warn(error);
     }
 
-    // 4) For CSGO: now launch the client (after server is up)
-    if (this.settings.general.game === Constants.Game.CSGO) {
-      await this.launchClientCSGO();
-    }
+    // 4) now launch the client (after server is up)
+    await this.launchClientCSGO();
 
     // 5) Attach client process handlers (all games with a client)
     if (gameClientProcess) {
@@ -1800,27 +1198,11 @@ End\n
       this.scorebotEvents.push({ type: Scorebot.EventIdentifier.ROUND_OVER, payload }),
     );
 
-    // Small CS2 helper hooks you had before (optional; keep if they exist in your version)
-    this.scorebot.on(Scorebot.EventIdentifier.SAY, async (payload) => {
-      if (payload === '.ready' && this.settings.general.game === Constants.Game.CS2) {
-        this.rcon.send('mp_warmup_end');
-      }
-    });
-    this.scorebot.on(Scorebot.EventIdentifier.PLAYER_ENTERED, async () => {
-      if (this.settings.general.game === Constants.Game.CS2) {
-        await Util.sleep(Constants.GameSettings.SERVER_CVAR_GAMEOVER_DELAY * 500);
-        this.rcon.send('exec liga-bots');
-      }
-    });
-
     // 8) Resolve when GAME_OVER fires – like original LIGA
     return new Promise((resolve) => {
       this.scorebot.on(Scorebot.EventIdentifier.GAME_OVER, async (payload) => {
-        // In CS:GO/CS2 we delay + adjust score ordering for OT
-        if (
-          this.settings.general.game === Constants.Game.CS2 ||
-          this.settings.general.game === Constants.Game.CSGO
-        ) {
+        // In CS:GO we delay + adjust score ordering for OT
+        if (true) {
           await Util.sleep(Constants.GameSettings.SERVER_CVAR_GAMEOVER_DELAY * 1000);
 
           const totalRoundsPlayed = payload.score.reduce((a, b) => a + b, 0);
