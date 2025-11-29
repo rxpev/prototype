@@ -302,6 +302,15 @@ export class Server {
   // FACEIT fields
   private isFaceit: boolean;
   private faceitRoom: any;
+  private faceitSides?: Record<number, "t" | "ct">;
+  private faceitUserSide?: "t" | "ct";
+
+  public getFaceitSides() {
+    return this.faceitSides;
+  }
+  public getFaceitUserSide() {
+    return this.faceitUserSide;
+  }
 
   public competitors: Server['match']['competitors'];
   public log: log.LogFunctions;
@@ -408,39 +417,61 @@ export class Server {
 
     // build competitors data
     if (this.isFaceit && this.faceitRoom) {
-      // Build pseudo competitors from FACEIT match room
-      // Remove the real user from Team A so they don't spawn as a bot
+      // Build pseudo competitors from FACEIT match room; user will be the only human.
       const userId = this.profile.playerId;
 
-      const cleanTeamA = this.faceitRoom.teamA.filter((p: any) => p.id !== userId);
-      const cleanTeamB = this.faceitRoom.teamB as any[];
+      // Where is the human?
+      const userOnTeamA = this.faceitRoom.teamA.some((p: any) => p.id === userId);
+      const userOnTeamB = this.faceitRoom.teamB.some((p: any) => p.id === userId);
+      const userTeamId = userOnTeamA ? 1 : userOnTeamB ? 2 : 1;
 
-      this.competitors = [
-        {
-          teamId: 1,
-          team: {
-            id: 1,
-            name: 'FACEIT TEAM A',
-            slug: 'faceit-a',
-            country: { code: 'EU' } as any,
-            players: cleanTeamA.map(
-              this.toServerPlayerFromMatchPlayer.bind(this),
-            ),
-          },
+      // Remove human from both bot rosters just in case
+      const cleanTeamA = this.faceitRoom.teamA.filter((p: any) => p.id !== userId);
+      const cleanTeamB = this.faceitRoom.teamB.filter((p: any) => p.id !== userId);
+
+      // Same naming convention as the FACEIT match room UI
+      const teamAName = this.faceitRoom.teamA.length
+        ? `Team_${this.faceitRoom.teamA[0].name}`
+        : 'Team_A';
+      const teamBName = this.faceitRoom.teamB.length
+        ? `Team_${this.faceitRoom.teamB[0].name}`
+        : 'Team_B';
+
+      const teamA = {
+        teamId: 1,
+        team: {
+          id: 1,
+          name: teamAName,
+          slug: teamAName.toLowerCase().replace(/\s+/g, '-'),
+          country: { code: 'EU' } as any,
+          players: cleanTeamA.map(
+            this.toServerPlayerFromMatchPlayer.bind(this),
+          ),
         },
-        {
-          teamId: 2,
-          team: {
-            id: 2,
-            name: 'FACEIT TEAM B',
-            slug: 'faceit-b',
-            country: { code: 'EU' } as any,
-            players: cleanTeamB.map(
-              this.toServerPlayerFromMatchPlayer.bind(this),
-            ),
-          },
+      };
+
+      const teamB = {
+        teamId: 2,
+        team: {
+          id: 2,
+          name: teamBName,
+          slug: teamBName.toLowerCase().replace(/\s+/g, '-'),
+          country: { code: 'EU' } as any,
+          players: cleanTeamB.map(
+            this.toServerPlayerFromMatchPlayer.bind(this),
+          ),
         },
-      ] as any;
+      };
+
+      // Randomize which logical team (1/2) starts T / CT once for this match
+      const teamAStartsT = Math.random() < 0.5;
+      this.faceitSides = teamAStartsT
+        ? { 1: 't', 2: 'ct' }
+        : { 1: 'ct', 2: 't' };
+
+      this.faceitUserSide = this.faceitSides[userTeamId];
+
+      this.competitors = [teamA, teamB] as any;
     } else {
       this.competitors = match.competitors.map((competitor) => ({
         ...competitor,
@@ -466,7 +497,7 @@ export class Server {
     if (this.isFaceit) {
       return `FACEIT | PUG #${this.faceitRoom?.matchId ?? ''}`;
     }
-     
+
     const { federation, tier } = this.match.competition;
     const idiomaticTierName = Constants.IdiomaticTier[tier.slug];
     return `${tier.league.name}: ${startCase(federation.slug)} | ${idiomaticTierName}`;
@@ -624,33 +655,36 @@ export class Server {
   }
 
   /**
-   * Generates the bot config.
-   *
-   * @function
-   */
+ * Generates the bot profile config (botprofile.db).
+ *
+ * @function
+ */
   private async generateBotConfig() {
-    const original = path.join(
-      this.settings.general.dedicatedServerPath,
-      this.gameDir,
-      this.botConfigFile,
-    );
+    // Decide base directory for botprofile.db
+    const baseDir =
+      this.settings.general.game === Constants.Game.CSGO
+        ? path.join(this.settings.general.dedicatedServerPath, this.gameDir)
+        : path.join(this.settings.general.gamePath, this.baseDir, this.gameDir);
+
+    const original = path.join(baseDir, this.botConfigFile); // e.g. "botprofile.db"
+
     const template = await fs.promises.readFile(original, 'utf8');
     const [home, away] = this.competitors;
+
     const allPlayers = [...home.team.players, ...away.team.players];
     await this.exportBotTemplatesJSON(allPlayers);
-    return fs.promises.writeFile(
-      original,
-      Sqrl.render(
-        template,
-        {
-          home: home.team.players.map(this.generateBotDifficulty.bind(this)),
-          away: away.team.players.map(this.generateBotDifficulty.bind(this)),
-        },
-        {
-          autoEscape: false,
-        },
-      ),
+
+    const rendered = Sqrl.render(
+      template,
+      {
+        home: home.team.players.map(this.generateBotDifficulty.bind(this)),
+        away: away.team.players.map(this.generateBotDifficulty.bind(this)),
+      },
+      { autoEscape: false },
     );
+
+    await fs.promises.writeFile(original, rendered, 'utf8');
+    this.log.info(`Generated botprofile at: ${original}`);
   }
 
   /**
@@ -955,29 +989,52 @@ End\n
   }
 
   /**
-   * Generates the server configuration file.
-   *
-   * @function
-   */
+  * Generates the server configuration file and the bot command file (liga-bots.cfg).
+  *
+  * @function
+  */
   private async generateServerConfig() {
-    // set up the server config paths
-    const original = path.join(
-      this.settings.general.gamePath,
-      this.baseDir,
-      this.gameDir,
-      this.serverConfigFile,
-    );
-    const template = await fs.promises.readFile(original, 'utf8');
+    const dedicatedDir = this.settings.general.dedicatedServerPath;
+    if (!dedicatedDir) {
+      this.log.warn('No dedicatedServerPath set, skipping server.cfg / liga-bots.cfg generation');
+      return;
+    }
 
-    // set up the bot command config paths
-    const botCommandOriginal = path.join(
-      this.settings.general.dedicatedServerPath,
+    // ------------------------------
+    // 1) SERVER.CFG TEMPLATE + PATH
+    // ------------------------------
+    const serverTemplatePath = path.join(
+      PluginManager.getPath(),
       this.gameDir,
-      this.botCommandFile,
+      this.serverConfigFile, // e.g. "cfg/server.cfg"
     );
-    const botsCommandTemplate = await fs.promises.readFile(botCommandOriginal, 'utf8');
+    const serverTemplate = await fs.promises.readFile(serverTemplatePath, 'utf8');
+
+    const serverCfgPath = path.join(
+      dedicatedDir,
+      this.gameDir,
+      this.serverConfigFile, // same "cfg/server.cfg"
+    );
+
+    await fs.promises.mkdir(path.dirname(serverCfgPath), { recursive: true });
 
     const [home, away] = this.competitors as any;
+
+    // For FACEIT, sides may be randomized; map them to T/CT.
+    let tTeam = home;
+    let ctTeam = away;
+
+    if (this.isFaceit && this.faceitSides) {
+      const maybeT = this.competitors.find(
+        (c: any) => this.faceitSides?.[c.teamId] === 't',
+      );
+      const maybeCT = this.competitors.find(
+        (c: any) => this.faceitSides?.[c.teamId] === 'ct',
+      );
+
+      if (maybeT) tTeam = maybeT;
+      if (maybeCT) ctTeam = maybeCT;
+    }
 
     let homeStats: any;
     let awayStats: any;
@@ -993,39 +1050,8 @@ End\n
       ];
     }
 
-    // generate bot commands (works for both tournament + FACEIT, since we
-    // built pseudo competitors for FACEIT in the ctor)
-    const bots = flatten(
-      this.competitors.map((competitor, idx) =>
-        competitor.team.players.map((player) => {
-          // difficulty modifiers do not apply to the user's
-          // team unless they are in spectating mode
-          if (
-            this.settings.general.botDifficulty &&
-            (competitor.teamId !== this.profile.teamId || this.spectating)
-          ) {
-            const template = Bot.Templates.find(
-              (t) => t.name === this.settings.general.botDifficulty,
-            );
-            if (template) {
-              player.xp = template.baseXP;
-            }
-          }
-
-          const xp = new Bot.Exp(player);
-          return {
-            difficulty: xp.getBotTemplate().difficulty,
-            name: player.name,
-            team: idx === 0 ? 't' : 'ct',
-          };
-        }),
-      ),
-    );
-
-    // server.cfg variables
     const serverCfgData = this.isFaceit
       ? {
-        // FACEIT PUG config
         demo: true,
         freezetime: this.settings.matchRules.freezeTime,
         hostname: this.hostname,
@@ -1033,8 +1059,8 @@ End\n
         maxrounds_ot: this.settings.matchRules.maxRoundsOvertime || 6,
         ot: +this.overtime,
         rcon_password: Constants.GameSettings.RCON_PASSWORD,
-        teamname_t: home.team.name,
-        teamname_ct: away.team.name,
+        teamname_t: tTeam.team.name,
+        teamname_ct: ctTeam.team.name,
         gameover_delay: Constants.GameSettings.SERVER_CVAR_GAMEOVER_DELAY,
         bot_chatter: this.settings.general.botChatter,
         spectating: +this.spectating,
@@ -1042,17 +1068,24 @@ End\n
         bombTimer: this.settings.matchRules.bombTimer,
         defuserAllocation: this.settings.matchRules.defuserAllocation,
 
-        // scoreboard-ish
+        // FACEIT scoreboard-ish
         match_stat: 'FACEIT PUG',
-        teamflag_t: home.team.country?.code || 'EU',
-        teamflag_ct: away.team.country?.code || 'EU',
-        shortname_t: home.team.slug || 'FACEITA',
-        shortname_ct: away.team.slug || 'FACEITB',
+        teamflag_t: tTeam.team.country?.code || 'EU',
+        teamflag_ct: ctTeam.team.country?.code || 'EU',
+        shortname_t: tTeam.team.slug || 'FACEITA',
+        shortname_ct: ctTeam.team.slug || 'FACEITB',
         stat_t: '',
         stat_ct: '',
+
+        // Human side: map internal 't' / 'ct' to CVar's 'T' / 'CT' / 'any'
+        humanteam:
+          this.faceitUserSide === 't'
+            ? 'T'
+            : this.faceitUserSide === 'ct'
+              ? 'CT'
+              : 'any',
       }
       : {
-        // original tournament config
         demo: true,
         freezetime: this.settings.matchRules.freezeTime,
         hostname: this.hostname,
@@ -1069,7 +1102,6 @@ End\n
         bombTimer: this.settings.matchRules.bombTimer,
         defuserAllocation: this.settings.matchRules.defuserAllocation,
 
-        // csgo only
         match_stat: this.match.competition.tier.name,
         teamflag_t: home.team.country.code,
         teamflag_ct: away.team.country.code,
@@ -1079,15 +1111,62 @@ End\n
         stat_ct: Util.toOrdinalSuffix(awayStats.position),
       };
 
-    // write the config files
-    return Promise.all([
-      fs.promises.writeFile(
-        botCommandOriginal,
-        Sqrl.render(botsCommandTemplate, { bots }, { autoEscape: false }),
+    const serverCfgRendered = Sqrl.render(serverTemplate, serverCfgData, {
+      autoEscape: false,
+    });
+
+    await fs.promises.writeFile(serverCfgPath, serverCfgRendered, 'utf8');
+    this.log.info(`Generated server.cfg at: ${serverCfgPath}`);
+
+    // -------------------------------------------
+    // 2) LIGA-BOTS.CFG TEMPLATE + PATH (COMMANDS)
+    // -------------------------------------------
+    const botCmdTemplatePath = path.join(
+      PluginManager.getPath(),
+      this.gameDir,
+      this.botCommandFile, // e.g. "cfg/liga-bots.cfg"
+    );
+    const botCmdTemplate = await fs.promises.readFile(botCmdTemplatePath, 'utf8');
+
+    const botCmdPath = path.join(
+      dedicatedDir,
+      this.gameDir,
+      this.botCommandFile, // same "cfg/liga-bots.cfg"
+    );
+
+    await fs.promises.mkdir(path.dirname(botCmdPath), { recursive: true });
+
+    const bots = flatten(
+      this.competitors.map((competitor, idx) =>
+        competitor.team.players.map((player) => {
+          const xp = new Bot.Exp(player);
+
+          const side =
+            this.isFaceit && this.faceitSides
+              ? this.faceitSides[competitor.teamId] || 't'
+              : idx === 0
+                ? 't'
+                : 'ct';
+          return {
+            difficulty: xp.getBotTemplate().difficulty,
+            name: player.name,
+            team: side,
+          };
+        }),
       ),
-      fs.promises.writeFile(original, Sqrl.render(template, serverCfgData)),
-    ]);
+    );
+
+    const botCmdRendered = Sqrl.render(
+      botCmdTemplate,
+      { bots },
+      { autoEscape: false },
+    );
+
+    await fs.promises.writeFile(botCmdPath, botCmdRendered, 'utf8');
+    this.log.info(`Generated ${this.botCommandFile} at: ${botCmdPath}`);
   }
+
+
 
   /**
    * Generates the VPK for game customizations.
@@ -1418,9 +1497,13 @@ End\n
       '-insecure',
       '-tickrate 128',
       '-maxplayers_override',
-      '12',
+      '10',
       '-game',
       'csgo',
+      '+game_type',
+      '0',
+      '+game_mode',
+      '1',
       '-port',
       Constants.GameSettings.RCON_PORT.toString(),
       '+exec',

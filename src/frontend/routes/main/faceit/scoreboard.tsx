@@ -1,10 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Constants } from "@liga/shared";
 
-// ------------------------------
-// TYPES
-// ------------------------------
-
 export interface ScoreboardProps {
   matchId: number;
 }
@@ -27,6 +23,7 @@ export interface ScorebotEvent {
 export interface MatchRecord {
   id: number;
   status: number;
+  payload?: string | null;
   faceitTeammates?: string | null;
   faceitOpponents?: string | null;
   competitors?: {
@@ -36,19 +33,11 @@ export interface MatchRecord {
   }[];
 }
 
-// ------------------------------
-// COMPONENT
-// ------------------------------
-
 export default function Scoreboard({ matchId }: ScoreboardProps) {
   const [loading, setLoading] = useState(true);
   const [match, setMatch] = useState<MatchRecord | null>(null);
   const [players, setPlayers] = useState<PlayerRow[]>([]);
   const [events, setEvents] = useState<ScorebotEvent[]>([]);
-
-  // ------------------------------
-  // LOAD MATCH DATA
-  // ------------------------------
 
   useEffect(() => {
     if (!matchId) return;
@@ -68,10 +57,6 @@ export default function Scoreboard({ matchId }: ScoreboardProps) {
       setLoading(false);
     }
   }
-
-  // ------------------------------
-  // LOADING OR NOT COMPLETE
-  // ------------------------------
 
   if (loading) {
     return <div className="text-gray-400">Loading…</div>;
@@ -97,13 +82,29 @@ export default function Scoreboard({ matchId }: ScoreboardProps) {
   // EXTRACT TEAM SCORES
   // ------------------------------
 
-  const scoreA =
+  const scoreTeam1 =
     match.competitors?.find((c) => c.teamId === 1)?.score ?? 0;
-  const scoreB =
+  const scoreTeam2 =
     match.competitors?.find((c) => c.teamId === 2)?.score ?? 0;
 
-  const teamAWon = scoreA > scoreB;
-  const teamBWon = scoreB > scoreA;
+  const payload = match.payload ? JSON.parse(match.payload) : {};
+  const teamA = payload.teamA || [];
+  const userId = teamA.length > 0 ? teamA[0].id : null;
+
+  const teammatesRaw = match.faceitTeammates
+    ? JSON.parse(match.faceitTeammates)
+    : [];
+  const opponentsRaw = match.faceitOpponents
+    ? JSON.parse(match.faceitOpponents)
+    : [];
+
+  const isUserTeam1 = teammatesRaw.some((p: any) => p.id === userId);
+
+  const userScore = isUserTeam1 ? scoreTeam1 : scoreTeam2;
+  const oppScore = isUserTeam1 ? scoreTeam2 : scoreTeam1;
+
+  const userWon = userScore > oppScore;
+  const oppWon = oppScore > userScore;
 
   // ------------------------------
   // BUILD FACEIT TEAM SPLIT
@@ -157,15 +158,23 @@ export default function Scoreboard({ matchId }: ScoreboardProps) {
   // SPLIT TEAMS
   // ------------------------------
 
-  const teamA =
+  const rawTeamAStats =
     teamAIds.size > 0 ? stats.filter((s) => teamAIds.has(s.id)) : [];
-  const teamB =
+  const rawTeamBStats =
     teamBIds.size > 0 ? stats.filter((s) => teamBIds.has(s.id)) : [];
 
   const finalA =
-    teamA.length > 0 ? teamA : stats.slice(0, Math.ceil(stats.length / 2));
+    rawTeamAStats.length > 0
+      ? rawTeamAStats
+      : stats.slice(0, Math.ceil(stats.length / 2));
+
   const finalB =
-    teamB.length > 0 ? teamB : stats.slice(Math.ceil(stats.length / 2));
+    rawTeamBStats.length > 0
+      ? rawTeamBStats
+      : stats.slice(Math.ceil(stats.length / 2));
+
+  const userTeamStats = isUserTeam1 ? finalA : finalB;
+  const oppTeamStats = isUserTeam1 ? finalB : finalA;
 
   // ------------------------------
   // SORTING
@@ -177,21 +186,21 @@ export default function Scoreboard({ matchId }: ScoreboardProps) {
       return b.kdRatio - a.kdRatio;
     });
 
-  const sortedA = sortPlayers(finalA);
-  const sortedB = sortPlayers(finalB);
+  const sortedUserTeam = sortPlayers(userTeamStats);
+  const sortedOppTeam = sortPlayers(oppTeamStats);
+
   const teamAName =
-    teamAIds.size > 0
-      ? `Team_${JSON.parse(match.faceitTeammates ?? "[]")[0]?.name ?? "A"}`
+    teammatesRaw.length > 0
+      ? `Team_${teammatesRaw[0]?.name ?? "A"}`
       : "Team A";
 
   const teamBName =
-    teamBIds.size > 0
-      ? `Team_${JSON.parse(match.faceitOpponents ?? "[]")[0]?.name ?? "B"}`
+    opponentsRaw.length > 0
+      ? `Team_${opponentsRaw[0]?.name ?? "B"}`
       : "Team B";
 
-  // ------------------------------
-  // RENDER
-  // ------------------------------
+  const leftName = isUserTeam1 ? teamAName : teamBName;
+  const rightName = isUserTeam1 ? teamBName : teamAName;
 
   return (
     <div className="p-6 flex flex-col gap-8">
@@ -200,34 +209,29 @@ export default function Scoreboard({ matchId }: ScoreboardProps) {
       {/* BIG FINAL SCORE */}
       <div className="flex justify-center items-center text-center mb-6">
         <span
-          className={`text-5xl font-extrabold mx-4 ${teamAWon ? "text-green-400" : "text-gray-300"
+          className={`text-5xl font-extrabold mx-4 ${userWon ? "text-green-400" : "text-gray-300"
             }`}
         >
-          {scoreA}
+          {userScore}
         </span>
 
         <span className="text-4xl font-bold text-gray-400">–</span>
 
         <span
-          className={`text-5xl font-extrabold mx-4 ${teamBWon ? "text-green-400" : "text-gray-300"
+          className={`text-5xl font-extrabold mx-4 ${oppWon ? "text-green-400" : "text-gray-300"
             }`}
         >
-          {scoreB}
+          {oppScore}
         </span>
       </div>
 
       <div className="grid grid-cols-2 gap-8">
-        <TeamTable name={teamAName} stats={sortedA} />
-
-        <TeamTable name={teamBName} stats={sortedB} />
+        <TeamTable name={leftName} stats={sortedUserTeam} />
+        <TeamTable name={rightName} stats={sortedOppTeam} />
       </div>
     </div>
   );
 }
-
-// ------------------------------
-// TEAM TABLE COMPONENT
-// ------------------------------
 
 interface TeamTableProps {
   name: string;
@@ -267,7 +271,6 @@ function TeamTable({ name, stats }: TeamTableProps) {
               <td className="py-2 text-center">{p.deaths}</td>
               <td className="py-2 text-center">{p.assists}</td>
               <td className="py-2 text-center">{p.hs}%</td>
-
               <td className="py-2 text-center">
                 {p.deaths === 0
                   ? p.kills.toFixed(2)

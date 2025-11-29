@@ -223,14 +223,21 @@ export class FaceitMatchmaker {
     const avgB = teamB.reduce((s, p) => s + p.elo, 0) / teamB.length;
 
     const expectedA = this.expectedWin(avgA, avgB);
-    const { gain, loss } = this.calcEloAdjustment(expectedA);
+    const expectedB = 1 - expectedA;
+
+    const userIsTeamA = true;
+
+    const userExpected = userIsTeamA ? expectedA : expectedB;
+
+    const { gain, loss } = this.calcEloAdjustment(userExpected);
 
     return {
       matchId: `${Date.now()}`,
       teamA,
       teamB,
       expectedWinA: expectedA,
-      expectedWinB: 1 - expectedA,
+      expectedWinB: expectedB,
+
       eloGain: gain,
       eloLoss: loss,
     };

@@ -31,7 +31,7 @@ export type MatchPlayer = {
 };
 
 export interface MatchRoomData {
-  fakeRoomId: string;
+  matchId: string;
   teamA: MatchPlayer[];
   teamB: MatchPlayer[];
   expectedWinA: number;
@@ -105,7 +105,7 @@ export default function MatchRoom({
   const { state, dispatch } = React.useContext(AppStateContext);
 
   const {
-    fakeRoomId,
+    matchId,
     teamA,
     teamB,
     expectedWinA,
@@ -365,7 +365,7 @@ export default function MatchRoom({
       teamB: shuffledTeamB,
     } as any);
 
-    dispatch(faceitRoomSet(room, result.matchId));
+    dispatch(faceitRoomSet({ ...room, matchId: room.matchId }, result.matchId));
 
     if (onEloUpdate) {
       await onEloUpdate();
@@ -459,8 +459,8 @@ export default function MatchRoom({
         <div className="flex gap-8 border-b border-neutral-700 mb-6 pb-2">
           <button
             className={`pb-1 ${tab === "room"
-                ? "text-white border-b-2 border-orange-500"
-                : "text-neutral-500 hover:text-neutral-300"
+              ? "text-white border-b-2 border-orange-500"
+              : "text-neutral-500 hover:text-neutral-300"
               }`}
             onClick={() => setTab("room")}
           >
@@ -470,10 +470,10 @@ export default function MatchRoom({
           <button
             disabled={!storedMatchId}
             className={`pb-1 ${tab === "scoreboard"
-                ? "text-white border-b-2 border-orange-500"
-                : storedMatchId
-                  ? "text-neutral-500 hover:text-neutral-300"
-                  : "text-neutral-700 cursor-not-allowed"
+              ? "text-white border-b-2 border-orange-500"
+              : storedMatchId
+                ? "text-neutral-500 hover:text-neutral-300"
+                : "text-neutral-700 cursor-not-allowed"
               }`}
             onClick={() => setTab("scoreboard")}
           >
@@ -485,7 +485,7 @@ export default function MatchRoom({
         {tab === "room" && (
           <>
             <div className="text-center mb-4 opacity-70">
-              Match ID: {fakeRoomId}
+              Match ID: {room.matchId}
             </div>
 
             <div className="grid grid-cols-3 gap-4">
@@ -667,8 +667,8 @@ export default function MatchRoom({
 
                       <button
                         className={`mt-4 px-8 py-3 rounded text-lg ${vetoComplete
-                            ? "bg-orange-600 hover:bg-orange-700"
-                            : "bg-neutral-700 cursor-not-allowed opacity-60"
+                          ? "bg-orange-600 hover:bg-orange-700"
+                          : "bg-neutral-700 cursor-not-allowed opacity-60"
                           }`}
                         disabled={!vetoComplete}
                         onClick={handleStartMatch}

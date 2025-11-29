@@ -891,7 +891,7 @@ export const GameSettings = {
   CSGO_EXE: 'csgo.exe',
   CSGO_GAMEDIR: 'csgo',
   CSGO_LANGUAGE_FILE: 'resource/csgo_english.txt',
-  CSGO_SERVER_CONFIG_FILE: 'cfg/listenserver.cfg',
+  CSGO_SERVER_CONFIG_FILE: 'cfg/server.cfg',
   CSGO_STEAM_INF_FILE: 'steam.inf',
   CSGO_VERSION: 2000258,
 
@@ -1177,32 +1177,32 @@ export const Prestige = [
  * @constant
  */
 export const PrizePool: Record<TierSlug | string, { total: number; distribution: Array<number> }> =
-  {
-    [TierSlug.CIRCUIT_OPEN]: { total: 0, distribution: [] },
-    [TierSlug.CIRCUIT_CLOSED]: { total: 0, distribution: [] },
-    [TierSlug.CIRCUIT_FINALS]: { total: 0, distribution: [] },
-    [TierSlug.CIRCUIT_PLAYOFFS]: { total: 50_000, distribution: [50, 35, 15] },
-    [TierSlug.ESWC_CHALLENGERS]: { total: 0, distribution: [] },
-    [TierSlug.ESWC_LEGENDS]: { total: 0, distribution: [] },
-    [TierSlug.ESWC_CHAMPIONS]: { total: 0, distribution: [] },
-    [TierSlug.ESWC_PLAYOFFS]: { total: 500_000, distribution: [50, 35, 15] },
-    [TierSlug.LEAGUE_OPEN]: { total: 5_000, distribution: [50, 35, 15] },
-    [TierSlug.LEAGUE_OPEN_PLAYOFFS]: { total: 0, distribution: [] },
-    [TierSlug.LEAGUE_CUP]: { total: 30_000, distribution: [75, 25] },
-    [TierSlug.LEAGUE_INTERMEDIATE]: { total: 15_000, distribution: [50, 35, 15] },
-    [TierSlug.LEAGUE_INTERMEDIATE_PLAYOFFS]: { total: 0, distribution: [] },
-    [TierSlug.LEAGUE_MAIN]: { total: 30_000, distribution: [50, 35, 15] },
-    [TierSlug.LEAGUE_MAIN_PLAYOFFS]: { total: 0, distribution: [] },
-    [TierSlug.LEAGUE_ADVANCED]: { total: 70_000, distribution: [50, 35, 15] },
-    [TierSlug.LEAGUE_ADVANCED_PLAYOFFS]: { total: 0, distribution: [] },
-    [TierSlug.LEAGUE_PREMIER]: { total: 200_000, distribution: [50, 35, 15] },
-    [TierSlug.LEAGUE_PREMIER_PLAYOFFS]: { total: 0, distribution: [] },
-    [TierSlug.SPONSORS_BLUEQUIL]: { total: 20_000, distribution: [50, 35, 15] },
-    [TierSlug.SPONSORS_HEAVENCASE]: { total: 12_000, distribution: [50, 35, 15] },
-    [TierSlug.SPONSORS_NINEKBET]: { total: 12_000, distribution: [50, 35, 15] },
-    [TierSlug.SPONSORS_SKINARCH]: { total: 5_000, distribution: [50, 35, 15] },
-    [TierSlug.SPONSORS_WHITE_WOLF]: { total: 10_000, distribution: [50, 35, 15] },
-  };
+{
+  [TierSlug.CIRCUIT_OPEN]: { total: 0, distribution: [] },
+  [TierSlug.CIRCUIT_CLOSED]: { total: 0, distribution: [] },
+  [TierSlug.CIRCUIT_FINALS]: { total: 0, distribution: [] },
+  [TierSlug.CIRCUIT_PLAYOFFS]: { total: 50_000, distribution: [50, 35, 15] },
+  [TierSlug.ESWC_CHALLENGERS]: { total: 0, distribution: [] },
+  [TierSlug.ESWC_LEGENDS]: { total: 0, distribution: [] },
+  [TierSlug.ESWC_CHAMPIONS]: { total: 0, distribution: [] },
+  [TierSlug.ESWC_PLAYOFFS]: { total: 500_000, distribution: [50, 35, 15] },
+  [TierSlug.LEAGUE_OPEN]: { total: 5_000, distribution: [50, 35, 15] },
+  [TierSlug.LEAGUE_OPEN_PLAYOFFS]: { total: 0, distribution: [] },
+  [TierSlug.LEAGUE_CUP]: { total: 30_000, distribution: [75, 25] },
+  [TierSlug.LEAGUE_INTERMEDIATE]: { total: 15_000, distribution: [50, 35, 15] },
+  [TierSlug.LEAGUE_INTERMEDIATE_PLAYOFFS]: { total: 0, distribution: [] },
+  [TierSlug.LEAGUE_MAIN]: { total: 30_000, distribution: [50, 35, 15] },
+  [TierSlug.LEAGUE_MAIN_PLAYOFFS]: { total: 0, distribution: [] },
+  [TierSlug.LEAGUE_ADVANCED]: { total: 70_000, distribution: [50, 35, 15] },
+  [TierSlug.LEAGUE_ADVANCED_PLAYOFFS]: { total: 0, distribution: [] },
+  [TierSlug.LEAGUE_PREMIER]: { total: 200_000, distribution: [50, 35, 15] },
+  [TierSlug.LEAGUE_PREMIER_PLAYOFFS]: { total: 0, distribution: [] },
+  [TierSlug.SPONSORS_BLUEQUIL]: { total: 20_000, distribution: [50, 35, 15] },
+  [TierSlug.SPONSORS_HEAVENCASE]: { total: 12_000, distribution: [50, 35, 15] },
+  [TierSlug.SPONSORS_NINEKBET]: { total: 12_000, distribution: [50, 35, 15] },
+  [TierSlug.SPONSORS_SKINARCH]: { total: 5_000, distribution: [50, 35, 15] },
+  [TierSlug.SPONSORS_WHITE_WOLF]: { total: 10_000, distribution: [50, 35, 15] },
+};
 
 /**
  * Settings for the application and their defaults.
@@ -1789,8 +1789,8 @@ export const WeaponTemplates = {
     [WeaponTemplate.SNIPER]: ['awp', 'famas', 'galilar', 'mp7'],
   },
   [Game.CSGO]: {
-    [WeaponTemplate.RIFLE]: ['ak47', 'aug', 'm4a1_silencer', 'm4a1', 'galiar', 'famas','mp9', 'mac10', 'ump45', 'mp7'],
-    [WeaponTemplate.SNIPER]: ['awp', 'ak47','aug', 'm4a1_silencer', 'm4a1', 'galiar', 'famas', 'ssg08', 'mp9', 'mac10', 'ump45', 'mp7'],
+    [WeaponTemplate.RIFLE]: ['ak47', 'aug', 'm4a1_silencer', 'm4a1', 'galiar', 'famas', 'mp9', 'mac10', 'ump45', 'mp7'],
+    [WeaponTemplate.SNIPER]: ['awp', 'ak47', 'aug', 'm4a1_silencer', 'm4a1', 'galiar', 'famas', 'ssg08', 'mp9', 'mac10', 'ump45', 'mp7'],
   },
   [Game.CSS]: {
     [WeaponTemplate.RIFLE]: ['m4a1', 'ak47', 'famas', 'galil', 'mp5'],

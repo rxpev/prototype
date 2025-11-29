@@ -37,11 +37,18 @@ export type MatchRoom = {
 // ------------------------------------------------------
 // Build minimal pseudo-match for Game(Server)
 // ------------------------------------------------------
+function getFaceitTeamName(team: MatchPlayer[], fallback: string): string {
+  if (!team || team.length === 0) return fallback;
+  return `Team_${team[0].name}`;
+}
 function buildFaceitPseudoMatch(profile: any, room: MatchRoom, dbMatchId: number) {
+  const teamAName = getFaceitTeamName(room.teamA, "Team_A");
+  const teamBName = getFaceitTeamName(room.teamB, "Team_B");
+
   const teamA = {
     id: 1,
-    name: "FACEIT TEAM A",
-    slug: "faceit-a",
+    name: teamAName,
+    slug: teamAName.toLowerCase().replace(/\s+/g, "-"),
     countryId: profile.player?.countryId ?? 0,
     country: profile.player?.country ?? { code: "EU" },
     players: room.teamA,
@@ -51,8 +58,8 @@ function buildFaceitPseudoMatch(profile: any, room: MatchRoom, dbMatchId: number
 
   const teamB = {
     id: 2,
-    name: "FACEIT TEAM B",
-    slug: "faceit-b",
+    name: teamBName,
+    slug: teamBName.toLowerCase().replace(/\s+/g, "-"),
     countryId: profile.player?.countryId ?? 0,
     country: profile.player?.country ?? { code: "EU" },
     players: room.teamB,
@@ -315,7 +322,6 @@ export default function registerFaceitHandlers() {
 
       if (!profile) throw new Error("No active profile found");
 
-      // MAP VETO & SETTINGS
       const settings = profile.settings
         ? JSON.parse(profile.settings)
         : Constants.Settings;
@@ -336,21 +342,18 @@ export default function registerFaceitHandlers() {
       settings.matchRules.mapOverride = selectedMap;
       profile.settings = JSON.stringify(settings);
 
-      // CREATE DB MATCH
       const dbMatch = await prisma.match.create({
         data: {
           matchType: "FACEIT_PUG",
           payload: JSON.stringify(room),
           profileId: profile.id,
           status: Constants.MatchStatus.READY,
-
           competitors: {
             create: [
               { teamId: 1, seed: 0, score: 0, result: null },
               { teamId: 2, seed: 1, score: 0, result: null },
             ],
           },
-
           games: {
             create: [
               {
@@ -371,15 +374,23 @@ export default function registerFaceitHandlers() {
 
       const realMatchId = dbMatch.id;
 
-      // BUILD PSEUDO MATCH
       const match = buildFaceitPseudoMatch(profile, room, realMatchId);
       match.games[0].map = selectedMap;
 
-      // RUN MATCH
       const game = new Game(profile, match, null, false);
       await game.start();
 
-      // SAVE RESULT
+      const sides = game.getFaceitSides();
+      await prisma.match.update({
+        where: { id: realMatchId },
+        data: {
+          payload: JSON.stringify({
+            ...room,
+            sides,
+          }),
+        },
+      });
+
       await saveFaceitResult(game, realMatchId, profile);
 
       return { ok: true, matchId: realMatchId };
@@ -408,11 +419,6 @@ export default function registerFaceitHandlers() {
         },
       },
     });
-
-    log.info(
-      `FACEIT:getMatchData id=${numericId} -> match?=${!!match}, status=${match?.status}, ` +
-      `players=${match?.players?.length ?? 0}, events=${match?.events?.length ?? 0}`
-    );
 
     if (!match) return { match: null, players: [], events: [] };
 

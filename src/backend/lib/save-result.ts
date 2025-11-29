@@ -19,63 +19,62 @@ export async function saveFaceitResult(
   const maxRounds = settings.matchRules.maxRounds;
   const maxRoundsOT = settings.matchRules.maxRoundsOvertime;
 
-  // ---------------------------------------------------------------------------
-  // SCORE CALCULATION
-  // ---------------------------------------------------------------------------
-
   const roundEvents = (gameServer.scorebotEvents || []).filter(
     (e: any) => e.type === "roundover"
   );
 
+  const dbMatch = await prisma.match.findFirst({ where: { id: dbMatchId } });
+  const payload = dbMatch?.payload ? JSON.parse(dbMatch.payload) : {};
+  const sides = payload.sides || {};
+
+  const tTeamId = Number(Object.keys(sides).find(k => sides[k] === "t"));
+  const ctTeamId = Number(Object.keys(sides).find(k => sides[k] === "ct"));
+
   let scoreA = 0;
   let scoreB = 0;
+
   let half = 0;
   let rounds = 1;
 
-  const computeWinner = (eventWinner: number, half: number, rounds: number) => {
-    let invert = half % 2 === 1;
-
-    if (rounds > maxRounds) {
-      const roundsOT = rounds - maxRounds;
-      const otIndex = Math.ceil(roundsOT / maxRoundsOT);
-
-      if (otIndex % 2 === 1) invert = half % 2 === 0;
-
-      const otRound = ((roundsOT - 1) % maxRoundsOT) + 1;
-      if (otRound === maxRoundsOT / 2 || otRound === maxRoundsOT) half++;
-    } else {
-      if (rounds === maxRounds / 2 || rounds === maxRounds) half++;
-    }
-
-    return invert ? 1 - eventWinner : eventWinner;
-  };
+  const flipWinner = (winner: number) => (winner === 0 ? 1 : 0);
 
   for (const ev of roundEvents) {
     const w = ev.payload?.winner;
     if (typeof w !== "number") continue;
 
-    const mapped = computeWinner(w, half, rounds);
-
-    if (mapped === 0) scoreA++;
-    else if (mapped === 1) scoreB++;
+    let effectiveWinner = w;
 
     if (rounds > maxRounds) {
       const roundsOT = rounds - maxRounds;
       const otRound = ((roundsOT - 1) % maxRoundsOT) + 1;
-      if (otRound === maxRoundsOT / 2 || otRound === maxRoundsOT)
-        half++;
+      const otIndex = Math.ceil(roundsOT / maxRoundsOT);
+      const isSideFlip = otRound === maxRoundsOT / 2 || otRound === maxRoundsOT;
+      const doInvert = otIndex % 2 === 1;
+      if (doInvert) effectiveWinner = flipWinner(effectiveWinner);
+      if (isSideFlip) half++;
     } else {
-      if (rounds === maxRounds / 2 || rounds === maxRounds) half++;
+      const isSideFlip = rounds === maxRounds / 2 || rounds === maxRounds;
+      if (half % 2 === 1) effectiveWinner = flipWinner(effectiveWinner);
+      if (isSideFlip) half++;
     }
+
+    const winnerTeamId =
+      effectiveWinner === 0 ? tTeamId : ctTeamId;
+
+    if (winnerTeamId === 1) scoreA++;
+    else if (winnerTeamId === 2) scoreB++;
 
     rounds++;
   }
 
-  const isWinA = scoreA > scoreB;
+  const userId = profile.player.id;
+  const teamAPlayers = payload.teamA || [];
+  const isUserTeamA = teamAPlayers.some((p: any) => p.id === userId);
+  const playerTeamId = isUserTeamA ? 1 : 2;
 
-  // ---------------------------------------------------------------------------
-  // PLAYER LIST
-  // ---------------------------------------------------------------------------
+  const playerWin =
+    (playerTeamId === 1 && scoreA > scoreB) ||
+    (playerTeamId === 2 && scoreB > scoreA);
 
   let teamA: MatchPlayerLite[] =
     (gameServer?.competitors?.[0]?.team?.players ?? []).map((p: any) => ({
@@ -105,10 +104,6 @@ export async function saveFaceitResult(
   let players = [...teamA, ...teamB];
   if (!players.find((p) => p.id === userPlayer.id)) players.push(userPlayer);
 
-  // ---------------------------------------------------------------------------
-  // PLAYER ID MAPPING
-  // ---------------------------------------------------------------------------
-
   const resolvePlayerId = (
     name: string | null,
     steamId: string | null,
@@ -128,10 +123,6 @@ export async function saveFaceitResult(
     }
     return null;
   };
-
-  // ---------------------------------------------------------------------------
-  // EVENT MAPPING
-  // ---------------------------------------------------------------------------
 
   const events = Array.isArray(gameServer.scorebotEvents)
     ? gameServer.scorebotEvents
@@ -178,25 +169,17 @@ export async function saveFaceitResult(
     };
   });
 
-  // ---------------------------------------------------------------------------
-  // WRITE MATCH DATA
-  // ---------------------------------------------------------------------------
-
   await prisma.match.update({
     where: { id: dbMatchId },
     data: {
       status: Constants.MatchStatus.COMPLETED,
-
-      date: new Date(), // update match finish timestamp
-
+      date: new Date(),
       players: {
         connect: players.map((p) => ({ id: p.id })),
       },
-
       events: {
         create: eventsToCreate,
       },
-
       games: {
         updateMany: {
           where: {},
@@ -205,7 +188,6 @@ export async function saveFaceitResult(
           },
         },
       },
-
       competitors: {
         updateMany: [
           {
@@ -237,63 +219,50 @@ export async function saveFaceitResult(
     },
   });
 
-  // ---------------------------------------------------------------------------
-  // APPLY FACEIT ELO
-  // ---------------------------------------------------------------------------
-
-  const dbMatch = await prisma.match.findFirst({ where: { id: dbMatchId } });
-
   let eloGain = 0;
   let eloLoss = 0;
 
   try {
-    const payload = JSON.parse(dbMatch?.payload ?? "{}");
-    eloGain = payload.eloGain ?? 0;
-    eloLoss = payload.eloLoss ?? 0;
+    const p = JSON.parse(dbMatch?.payload ?? "{}");
+    eloGain = p.eloGain ?? 0;
+    eloLoss = p.eloLoss ?? 0;
   } catch { }
 
-  const deltaA = isWinA ? eloGain : -eloLoss;
-  const deltaB = -deltaA;
+  const delta = playerWin ? eloGain : -eloLoss;
 
   await prisma.profile.update({
     where: { id: profile.id },
-    data: { faceitElo: profile.faceitElo + deltaA },
+    data: { faceitElo: profile.faceitElo + delta },
   });
 
-  // ⭐ Update teammates' Elo
   await Promise.all(
     teamA
       .filter((p) => p.id !== profile.player.id)
       .map((bot) =>
         prisma.player.update({
           where: { id: bot.id },
-          data: { elo: { increment: deltaA } },
+          data: { elo: { increment: delta } },
         })
       )
   );
 
-  // ⭐ Update opponents' Elo
   await Promise.all(
     teamB.map((bot) =>
       prisma.player.update({
         where: { id: bot.id },
-        data: { elo: { increment: deltaB } },
+        data: { elo: { increment: -delta } },
       })
     )
   );
 
-  // ---------------------------------------------------------------------------
-  // FINAL FACEIT METADATA
-  // ---------------------------------------------------------------------------
-
   await prisma.match.update({
     where: { id: dbMatchId },
     data: {
-      faceitIsWin: isWinA,
+      faceitIsWin: playerWin,
       faceitTeammates: JSON.stringify(teamA),
       faceitOpponents: JSON.stringify(teamB),
       faceitRating: null,
-      faceitEloDelta: deltaA,
+      faceitEloDelta: delta,
     },
   });
 
