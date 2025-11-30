@@ -70,7 +70,7 @@ Powered by my custom bot enhancer:
 - Creating a realistic player database
 - Adding an 'Agents' tab -> these will help you get contracts from Organizations
 
-Currently, my modification of LIGA is **not playable**. I am actively working on it, but it will take a lot of time. Here is a rough plan of what I want to achieve & have already achieved:
+Currently, my modification of LIGA is **only playable** on my setup. I am actively working on it, but it will take a lot of time. Here is a rough plan of what I want to achieve & have already achieved:
 
 - Career model refactor: “Manager” → “Player Career” foundation ✅
 - New save creation flow: create you (name/country/role) & start as teamless ✅
